@@ -1154,6 +1154,7 @@ _CloseVideoCaptureDevice = function_factory(dll.TT_CloseVideoCaptureDevice, [BOO
 _StartStreamingMediaFileToChannel = function_factory(dll.TT_StartStreamingMediaFileToChannel, [BOOL, [_TTInstance, TTCHAR_P, POINTER(VideoCodec)]])
 _StartStreamingMediaFileToChannelEx = function_factory(dll.TT_StartStreamingMediaFileToChannelEx, [BOOL, [_TTInstance, TTCHAR_P, POINTER(MediaFilePlayback), POINTER(VideoCodec)]])
 _UpdateStreamingMediaFileToChannel = function_factory(dll.TT_UpdateStreamingMediaFileToChannel, [BOOL, [_TTInstance, POINTER(MediaFilePlayback), POINTER(VideoCodec)]])
+_UpdateStreamingMediaFileToChannel = function_factory(dll.TT_UpdateStreamingMediaFileToChannel, [BOOL, [_TTInstance, POINTER(MediaFilePlayback), POINTER(VideoCodec)]])
 _StopStreamingMediaFileToChannel = function_factory(dll.TT_StopStreamingMediaFileToChannel, [BOOL, [_TTInstance]])
 _InitLocalPlayback = function_factory(dll.TT_InitLocalPlayback, [INT32, [_TTInstance, TTCHAR_P, POINTER(MediaFilePlayback)]])
 _UpdateLocalPlayback = function_factory(dll.TT_UpdateLocalPlayback, [BOOL, [_TTInstance, INT32, POINTER(MediaFilePlayback)]])
@@ -1348,6 +1349,8 @@ class TeamTalk(object):
             self.onUserAudioBlock(msg.nSource, msg.nStreamType)
         if event == ClientEvent.CLIENTEVENT_STREAM_MEDIAFILE:
             self.onStreamMediaFile(msg.mediafileinfo)
+        if event == ClientEvent.CLIENTEVENT_FILETRANSFER:
+            self.onFileTransfer(msg.filetransfer)
         if event == ClientEvent.CLIENTEVENT_CMD_USERACCOUNT:
             self.onUserAccount(msg.useraccount)
         if event == ClientEvent.CLIENTEVENT_CMD_BANNEDUSER:
@@ -1608,8 +1611,17 @@ class TeamTalk(object):
     def startStreamingMediaFileToChannel(self, szMediaFilePath, lpVideoCodec: VideoCodec) -> bool:
         return _StartStreamingMediaFileToChannel(self._tt, szMediaFilePath, lpVideoCodec)
 
+    def startStreamingMediaFileToChannelEx(self, szMediaFilePath, lpMediaFilePlayback: MediaFilePlayback, lpVideoCodec: VideoCodec) -> bool:
+        return _StartStreamingMediaFileToChannelEx(self._tt, szMediaFilePath, lpMediaFilePlayback, lpVideoCodec)
+
+    def updateStreamingMediaFileToChannel(self, lpMediaFilePlayback: MediaFilePlayback, lpVideoCodec: VideoCodec) -> bool:
+        return _UpdateStreamingMediaFileToChannel(self._tt, lpMediaFilePlayback, lpVideoCodec)
+
     def stopStreamingMediaFileToChannel(self) -> bool:
         return _StopStreamingMediaFileToChannel(self._tt)
+
+    def getMediaFileInfo(self, szMediaFilePath, lpMediaFileInfo: MediaFileInfo) -> bool:
+        return _GetMediaFileInfo(self._tt, szMediaFilePath, lpMediaFileInfo)
 
     def initLocalPlayback(self, szMediaFilePath, lpMediaFilePlayback: MediaFilePlayback) -> int:
         return _InitLocalPlayback(self._tt, szMediaFilePath, lpMediaFilePlayback)

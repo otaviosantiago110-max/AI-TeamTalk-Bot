@@ -1,6 +1,6 @@
 # User Manual — AI TeamTalk Bot
 
-> Version: Alpha v0.2.0.0 — this bot is still under active development. Some behaviors may change.
+> Version: v0.3.0.0 — version 3 of the bot, with the current systems enabled.
 
 This manual is for anyone using the bot on the TeamTalk server. You don't need to be an admin for anything listed here.
 

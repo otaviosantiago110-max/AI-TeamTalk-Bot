@@ -1,6 +1,6 @@
 # Manual do Administrador — Ai Bot (TeamTalk)
 
-> Versão do bot: **Alfa pública v0.2.0** — ainda em desenvolvimento, pode conter instabilidades.
+> Versão do bot: **v0.3.0.0** — versão 3 do bot, com os sistemas atuais ativados.
 
 Este manual cobre os comandos exclusivos de **administradores** (configurados em `admin_usernames` no `config.ini`, ou registrados como Super Admin/Admin na Web UI). Para comandos de usuário comum, veja `MANUAL_USUARIO_pt-br.md`.
 
@@ -100,7 +100,7 @@ Quando ativado, **qualquer mensagem livre** (sem comando) é traduzida em vez de
 | `appear.wav` / `disappear.wav` | Reservados para o futuro sistema de voz (ativação/desativação). |
 | `toggle.wav` | Alternância de modo (ex: tradutor). |
 | `notify1-4.wav` | Notificações do agendador de tarefas. |
-| `update_found.wav` / `updating.wav` | Reservados para o futuro auto-atualizador. |
+| `update_found.wav` / `updating.wav` | Usados pelo auto-atualizador. |
 | `startup.wav` | Toca no navegador ao entrar no painel de controle web. |
 
 Veja `docs/SOUNDS.md` para o design completo.
@@ -113,10 +113,10 @@ No `config.ini`, seção `[WebUI]`:
 
 > Mudar esses valores exige **reiniciar o processo do `web_ui.py`** pra valer.
 
-## Pendências conhecidas (para versões futuras)
+## Observações
 
-- **Auto-atualizador**: verificar/baixar novas versões do GitHub automaticamente. *(Adiado — ainda instável.)*
+- O auto-atualizador verifica Releases do GitHub e prepara a instalação das atualizações conforme a versão publicada.
 - **Reconhecimento de voz**: ativação por palavra-chave falada, comandos por voz. *(A implementar depois — é a parte mais complexa tecnicamente.)*
 
 ---
-*Manual gerado para o Ai Bot — Alfa pública v0.2.0.0
+*Manual gerado para o Ai Bot — v0.3.0.0.0

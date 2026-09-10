@@ -7,7 +7,7 @@ except ImportError:
 import logging # Re-add logging import for constants
 from TeamTalk5 import (
     TeamTalk, TeamTalkError, TextMsgType, UserRight, TT_STRLEN,
-    ttstr, buildTextMessage, ClientError, ClientFlags, VideoCodec, Codec
+    ttstr, buildTextMessage, ClientError, ClientFlags, VideoCodec, Codec, MediaFilePlayback, TT_MEDIAPLAYBACK_OFFSET_IGNORE, FileTransferStatus
 )
 from config_manager import save_config
 from handlers import command_handler
@@ -17,6 +17,8 @@ from services.task_scheduler import TaskScheduler
 import i18n
 from context_history_manager import ContextHistoryManager
 from logger_config import bot_logger # Import the named logger
+from version import VERSION
+from updater import UpdateManager
 
 
 def _resource_base_dir():
@@ -78,6 +80,11 @@ class MyTeamTalkBot(TeamTalk):
         )
         self.youtube_service = YouTubeService()
         self._current_youtube_path, self._current_youtube_title = None, None
+        self._youtube_queue = []
+        self._youtube_index = -1
+        self._youtube_paused = False
+        self._youtube_elapsed_ms = 0
+        self._youtube_duration_ms = 0
         self._sounds_dir = os.path.join(_resource_base_dir(), "sounds")
         self._last_activity_time = time.time()
         # Sleep/wake state machine:
@@ -86,6 +93,8 @@ class MyTeamTalkBot(TeamTalk):
         self._sleep_state = "awake"
         self._reminder_cycle_count = 0
         self._next_sleep_check_time = self._last_activity_time + SLEEP_TIMEOUT_SECONDS
+        self._updating_sound_active = False
+        self.update_manager = UpdateManager(self)
         self.task_scheduler = TaskScheduler(self)
         self.task_scheduler.load_from_json(bot_conf.get('scheduled_tasks', '[]'))
         self.translator_mode_enabled = False
@@ -139,12 +148,15 @@ class MyTeamTalkBot(TeamTalk):
     def _send_pm(self, to_id, msg): self._send_text_message(msg, TextMsgType.MSGTYPE_USER, nToUserID=to_id)
     def _send_channel_message(self, chan_id, msg): return self._send_text_message(msg, TextMsgType.MSGTYPE_CHANNEL, nChannelID=chan_id)
     def _send_broadcast(self, msg): return self._send_text_message(msg, TextMsgType.MSGTYPE_BROADCAST)
+    def _send_system_channel_message(self, chan_id, msg): return self._send_text_message(msg, TextMsgType.MSGTYPE_CHANNEL, nChannelID=chan_id, _system_message=True)
+    def _send_system_broadcast_message(self, msg): return self._send_text_message(msg, TextMsgType.MSGTYPE_BROADCAST, _system_message=True)
 
     def _send_text_message(self, message, msg_type, **kwargs):
         if not message: return False
+        system_message = kwargs.pop("_system_message", False)
         is_chan = msg_type == TextMsgType.MSGTYPE_CHANNEL
-        if (is_chan and (self.bot_locked or not self.allow_channel_messages)) or \
-           (msg_type == TextMsgType.MSGTYPE_BROADCAST and (self.bot_locked or not self.allow_broadcast)):
+        if not system_message and ((is_chan and (self.bot_locked or not self.allow_channel_messages)) or \
+           (msg_type == TextMsgType.MSGTYPE_BROADCAST and (self.bot_locked or not self.allow_broadcast))):
             self.logger.warning(
                 f"Suppressed outgoing message (type={msg_type}, bot_locked={self.bot_locked}, "
                 f"allow_channel_messages={self.allow_channel_messages}, allow_broadcast={self.allow_broadcast}): {message[:80]!r}"
@@ -256,6 +268,19 @@ class MyTeamTalkBot(TeamTalk):
     def t(self, key, **kwargs):
         return i18n.t(key, lang=self.language, **kwargs)
 
+    def _start_updating_sound(self):
+        if self._updating_sound_active:
+            return
+        self._updating_sound_active = True
+        self._play_channel_sound("updating.wav")
+
+    def _stop_updating_sound(self):
+        self._updating_sound_active = False
+        try:
+            self.stopStreamingMediaFileToChannel()
+        except Exception:
+            pass
+
     def _play_channel_sound(self, filename):
         """Streams a short local .wav from /sounds into the channel via the
         SDK's media-file streaming call. Skipped while a YouTube track is
@@ -306,10 +331,54 @@ class MyTeamTalkBot(TeamTalk):
                 self._play_channel_sound("message.wav")
                 self._next_sleep_check_time = now + REMINDER_INTERVAL_SECONDS
 
-    def _start_youtube_stream(self, file_path):
+    def _play_youtube_queue_index(self, index):
+        if not (0 <= index < len(self._youtube_queue)):
+            return False
+        item = self._youtube_queue[index]
+        path = item.get("path")
+        if not path or not os.path.exists(path):
+            return False
+        try:
+            self.stopStreamingMediaFileToChannel()
+        except Exception:
+            pass
+        if not self._start_youtube_stream(path):
+            return False
+        self._youtube_index = index
+        self._current_youtube_path = path
+        self._current_youtube_title = item.get("title", "Desconhecido")
+        self._youtube_paused = False
+        self._youtube_elapsed_ms = 0
+        self._youtube_duration_ms = 0
+        return True
+
+    def _start_youtube_stream(self, file_path, offset_ms=0, paused=False):
         video_codec = VideoCodec()
         video_codec.nCodec = Codec.NO_CODEC
-        return self.startStreamingMediaFileToChannel(file_path, video_codec)
+        playback = MediaFilePlayback()
+        playback.uOffsetMSec = max(0, int(offset_ms))
+        playback.bPaused = bool(paused)
+        return self.startStreamingMediaFileToChannelEx(file_path, playback, video_codec)
+
+    def _update_youtube_playback(self, offset_ms=TT_MEDIAPLAYBACK_OFFSET_IGNORE, paused=None):
+        playback = MediaFilePlayback()
+        playback.uOffsetMSec = int(offset_ms) if offset_ms is not None else TT_MEDIAPLAYBACK_OFFSET_IGNORE
+        playback.bPaused = self._youtube_paused if paused is None else bool(paused)
+        video_codec = VideoCodec()
+        video_codec.nCodec = Codec.NO_CODEC
+        ok = self.updateStreamingMediaFileToChannel(playback, video_codec)
+        if ok and paused is not None:
+            self._youtube_paused = bool(paused)
+        return ok
+
+    def onFileTransfer(self, filetransfer):
+        try:
+            if not filetransfer.bInbound and filetransfer.nStatus in (FileTransferStatus.FILETRANSFER_FINISHED, FileTransferStatus.FILETRANSFER_ERROR, FileTransferStatus.FILETRANSFER_CLOSED):
+                local_path = ttstr(filetransfer.szLocalFilePath)
+                if local_path.startswith(self.youtube_service.download_dir):
+                    self.youtube_service.cleanup(local_path)
+        except Exception as e:
+            self.logger.warning(f"Error handling file transfer: {e}")
 
     def onStreamMediaFile(self, mediafileinfo):
         # Fired by the SDK as the streamed file's status changes (started,
@@ -318,10 +387,24 @@ class MyTeamTalkBot(TeamTalk):
         try:
             from TeamTalk5 import MediaFileStatus
             status = mediafileinfo.nStatus
+            if self._current_youtube_path:
+                self._youtube_elapsed_ms = int(mediafileinfo.uElapsedMSec)
+                self._youtube_duration_ms = int(mediafileinfo.uDurationMSec)
             if status in (MediaFileStatus.MFS_FINISHED, MediaFileStatus.MFS_ERROR, MediaFileStatus.MFS_ABORTED):
                 if self._current_youtube_path:
-                    self.youtube_service.cleanup(self._current_youtube_path)
+                    finished_index = self._youtube_index
                     self._current_youtube_path, self._current_youtube_title = None, None
+                    self._youtube_paused = False
+                    self._youtube_elapsed_ms = 0
+                    self._youtube_duration_ms = 0
+                    next_index = finished_index + 1
+                    if status == MediaFileStatus.MFS_FINISHED and next_index < len(self._youtube_queue):
+                        def _auto_next(bot):
+                            if bot._play_youtube_queue_index(next_index):
+                                bot._send_channel_message(bot.getMyChannelID(), bot.t("yt.now_playing", title=bot._current_youtube_title))
+                        self._pending_main_thread_actions.put(_auto_next)
+                elif self._updating_sound_active and status == MediaFileStatus.MFS_FINISHED:
+                    self._play_channel_sound("updating.wav")
         except Exception as e:
             self.logger.warning(f"Error handling onStreamMediaFile: {e}")
 
@@ -337,6 +420,7 @@ class MyTeamTalkBot(TeamTalk):
                     self.runEventLoop(100)
                     self._process_pending_main_thread_actions()
                     self._check_sleep_state()
+                    self.update_manager.tick()
                 except TeamTalkError as e:
                     self._log_to_gui(f"[SDK Critical] Connection error: {e.errmsg}"); self._running = False
                 except Exception as e:
@@ -389,6 +473,7 @@ class MyTeamTalkBot(TeamTalk):
         self._update_admin_ids()
         chan_id = self.getChannelIDFromPath(self.target_channel_path) or self.getRootChannelID()
         if chan_id > 0: self._target_channel_id = chan_id; self._join_cmd_id = self.doJoinChannelByID(chan_id, self.channel_password)
+        self.update_manager.check_async()
     
     def onCmdMyselfLoggedOut(self): self._log_to_gui("Logged out."); self._logged_in = False
     
@@ -427,6 +512,8 @@ class MyTeamTalkBot(TeamTalk):
         elif textmessage.nMsgType == TextMsgType.MSGTYPE_USER: log_prefix="[PM]"
         self._log_to_gui(f"{log_prefix} <{sender_nick}> {full_msg}")
 
+        if self.update_manager.handle_response(textmessage.nFromUserID, full_msg):
+            return
         command_handler.handle_message(self, textmessage, full_msg)
 
     def onCmdUserUpdate(self, user):

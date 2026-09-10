@@ -1,6 +1,6 @@
 # Admin Manual — Ai Bot (TeamTalk)
 
-> Bot version: **Public Alpha v0.2.0** — still in development, may be unstable.
+> Bot version: **v0.3.0.0** — version 3 of the bot, with the current systems enabled.
 
 This manual covers commands exclusive to **admins** (configured via `admin_usernames` in `config.ini`, or registered as Super Admin/Admin in the Web UI). For regular user commands, see `MANUAL_USUARIO_en.md`.
 
@@ -100,7 +100,7 @@ When enabled, **any plain message** (no command) gets translated instead of chat
 | `appear.wav` / `disappear.wav` | Reserved for the future voice system (activation/deactivation). |
 | `toggle.wav` | Mode switch (e.g. translator). |
 | `notify1-4.wav` | Task scheduler notifications. |
-| `update_found.wav` / `updating.wav` | Reserved for the future auto-updater. |
+| `update_found.wav` / `updating.wav` | Used by the auto-updater. |
 | `startup.wav` | Plays in the browser when opening the web control panel. |
 
 See `docs/SOUNDS.md` for the full design.
@@ -115,8 +115,8 @@ In `config.ini`, `[WebUI]` section:
 
 ## Known pending work (future versions)
 
-- **Auto-updater**: automatically check/download new versions from GitHub. *(Postponed — still unstable.)*
+- **Auto-updater**: check and download new versions from GitHub. Automatic installation is reserved for the next stage.
 - **Voice recognition**: spoken wake-word activation, voice commands. *(To be implemented later — the most technically complex piece.)*
 
 ---
-*Manual generated for Ai Bot — Public Alpha v0.2.0.0
+*Manual generated for Ai Bot — v0.3.0.0.0

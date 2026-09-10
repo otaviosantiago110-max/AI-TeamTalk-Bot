@@ -2,6 +2,7 @@ import time
 import sys
 from TeamTalk5 import UserRight, TT_STRLEN, ttstr, LOADED_TT_LIB
 from utils import format_uptime
+from version import VERSION
 
 from . import ai_commands, poll_commands, communication_commands, youtube_commands, translator_commands
 from .admin import bot_control, config_management, feature_toggles, user_management, channel_management, ai_instructions, scheduler_commands
@@ -13,7 +14,7 @@ def handle_help(bot, msg_from_id, **kwargs):
     for key in [
         "help.h", "help.ping", "help.info", "help.ddev", "help.whoami", "help.rights",
         "help.cn", "help.cs", "help.ct", "help.bm",
-        "help.c", "help.ch", "help.cl", "help.n", "help.yt", "help.ytstop",
+        "help.c", "help.ch", "help.cl", "help.n", "help.yt", "help.ytstop", "help.ytcontrols",
         "help.c_channel",
         "help.poll", "help.vote", "help.results",
     ]:
@@ -48,7 +49,7 @@ def handle_developer(bot, msg_from_id, **kwargs):
     info_lines = [
         bot.t("developer.header"),
         bot.t("developer.program", name="AI-TeamTalk-Bot"),
-        bot.t("developer.version", version="0.2.0.4"),
+        bot.t("developer.version", version=VERSION),
         bot.t("developer.developer", name="Otávio Santiago"),
     ]
     bot._send_pm(msg_from_id, "\n".join(info_lines))
@@ -155,6 +156,23 @@ COMMAND_MAP_PM = {
     # YouTube Commands
     "yt": youtube_commands.handle_yt_play,
     "ytstop": youtube_commands.handle_yt_stop,
+    "ytpause": youtube_commands.handle_yt_pause,
+    "ytresume": youtube_commands.handle_yt_resume,
+    "ytforward": youtube_commands.handle_yt_forward,
+    "ytback": youtube_commands.handle_yt_backward,
+    "ytnext": youtube_commands.handle_yt_next,
+    "ytprev": youtube_commands.handle_yt_previous,
+    "ytplaylist": youtube_commands.handle_yt_playlist,
+    "ytclear": youtube_commands.handle_yt_clear,
+    "dl": youtube_commands.handle_yt_download,
+    "ytdownload": youtube_commands.handle_yt_download,
+    "ytpausar": youtube_commands.handle_yt_pause,
+    "ytcontinuar": youtube_commands.handle_yt_resume,
+    "ytavancar": youtube_commands.handle_yt_forward,
+    "ytretroceder": youtube_commands.handle_yt_backward,
+    "ytproxima": youtube_commands.handle_yt_next,
+    "ytanterior": youtube_commands.handle_yt_previous,
+    "ytbaixar": youtube_commands.handle_yt_download,
     # Poll Commands
     "poll": poll_commands.handle_poll_create,
     "vote": poll_commands.handle_vote,

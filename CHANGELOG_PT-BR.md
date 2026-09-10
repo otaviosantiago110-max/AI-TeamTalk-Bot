@@ -1,5 +1,58 @@
 # Changelog — AI TeamTalk Bot
 
+## v0.3.0.0 — Grande atualização e consolidação da versão 3
+
+### Novidades
+- A linha **v0.2.x foi encerrada e arquivada**. A partir desta versão, o desenvolvimento ativo segue a linha **v0.3.x**.
+- Consolidação dos sistemas atuais do bot na versão 3.
+- YouTube ampliado com pausa, retomada, avanço, retrocesso, próxima, anterior, playlists e fila de reprodução.
+- Novo comando `/dl`, que baixa somente o vídeo que está atualmente tocando, sem receber URL ou busca.
+- Download de áudio com `yt-dlp.exe` e conversão para MP3 320 kbps / 48 kHz com `ffmpeg.exe`.
+- Envio do arquivo baixado pelo TeamTalk, com comportamento específico para canal e PM.
+- Pasta `tools/` preparada para os executáveis externos do YouTube.
+- Manuais e documentação alinhados à versão **v0.3.0.0**.
+
+### Observação de versão
+A v0.3.0.0 representa uma mudança de linha de desenvolvimento, e não apenas um patch da série 0.2.x. As versões 0.2.x permanecem no histórico para referência e não representam mais a linha ativa.
+## v0.2.0.7 — YouTube ampliado
+
+- Controle de pausa e retomada da reprodução.
+- Avanço e retrocesso por segundos.
+- Fila de reprodução com próxima/anterior e avanço automático.
+- Carregamento de playlists.
+- Download para MP3 320 kbps/48 kHz e envio ao canal via TeamTalk.
+- YouTube usa yt-dlp.exe e ffmpeg.exe externos em `tools/`.
+- Preparação da API TeamTalk para controle de mídia com pausa e seek.
+
+## v0.2.0.6 — Segundo estágio do auto-atualizador
+
+### Novidades
+- Adicionada preparação segura da instalação após o download do pacote da Release.
+- O pacote é extraído fora do diretório da aplicação antes da instalação.
+- A instalação automática é executada por um processo auxiliar separado, permitindo substituir os arquivos depois que o processo principal termina.
+- O diretório atual da aplicação é preservado como backup durante a troca.
+- Arquivos de dados do usuário (`config.ini`, `.env`, `site.db` e os arquivos de log) são preservados durante a atualização.
+- O nome do executável instalado passa a ser mantido de forma estável, independentemente do nome do executável dentro do pacote baixado.
+- A instalação só pode ser iniciada por uma aplicação compilada com PyInstaller.
+- A extração rejeita caminhos inseguros no ZIP.
+### Limitação
+- O rollback automático após uma inicialização malsucedida ainda será implementado na próxima etapa.
+
+## v0.2.0.5 — Primeiro estágio do auto-atualizador
+
+### Novidades
+- Adicionado verificador automático de novas versões publicadas nas GitHub Releases.
+- As versões são identificadas pelas tags Git no formato `vX.Y.Z.W`.
+- A verificação acontece ao conectar e depois a cada 15 minutos.
+- Ao encontrar uma versão nova, o bot reproduz `update_found.wav` e pergunta no canal e por mensagem global se deve baixá-la.
+- A confirmação aceita `Y` ou `N` e fica restrita aos administradores configurados.
+- O download usa o pacote completo da Release e valida o SHA-256 quando o GitHub fornece o digest do asset.
+- Durante o download, `updating.wav` é repetido continuamente no canal até a conclusão.
+- O pacote baixado é validado e extraído para preparação da próxima etapa do sistema de atualização.
+
+### Observação
+- A substituição dos arquivos em execução, reinicialização e rollback automático ficam reservados para a próxima etapa do auto-atualizador.
+
 ## v0.2.0.4 — Ajuste do timer de espera e lembretes sonoros
 
 ### Correções
@@ -48,7 +101,7 @@
 ## v0.3.0.0 — Planejado
 
 ### Em desenvolvimento
-- Sistema de atualização.
+- Conclusão do sistema de atualização, incluindo instalação, reinicialização e rollback.
 - Sistema de voz.
 
 > Este arquivo será atualizado a cada nova versão do projeto.
