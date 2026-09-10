@@ -1,0 +1,9 @@
+wxPython
+groq
+requests
+yt-dlp
+SQLAlchemy
+Flask
+Flask-SQLAlchemy
+Werkzeug
+python-dotenv 

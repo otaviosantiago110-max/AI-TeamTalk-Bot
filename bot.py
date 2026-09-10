@@ -1,0 +1,471 @@
+
+import sys, os, time, random, re, queue
+try:
+    import wx
+except ImportError:
+    wx = None
+import logging # Re-add logging import for constants
+from TeamTalk5 import (
+    TeamTalk, TeamTalkError, TextMsgType, UserRight, TT_STRLEN,
+    ttstr, buildTextMessage, ClientError, ClientFlags, VideoCodec, Codec
+)
+from config_manager import save_config
+from handlers import command_handler
+from services.groq_service import GroqService
+from services.youtube_service import YouTubeService
+from services.task_scheduler import TaskScheduler
+import i18n
+from context_history_manager import ContextHistoryManager
+from logger_config import bot_logger # Import the named logger
+
+
+def _resource_base_dir():
+    """Same PyInstaller-safe resolution used in TeamTalk5.py: bundled data
+    (like the sounds/ folder) lives under sys._MEIPASS when frozen."""
+    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+        return sys._MEIPASS
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+SLEEP_TIMEOUT_SECONDS = 20 * 60  # 20 minutes of no activity -> bot "sleeps"
+REMINDER_INTERVAL_SECONDS = 20 * 60  # how often message.wav repeats while asleep
+MAX_REMINDER_CYCLES = 30  # 30 * 20min = 10h -> bot enters sleep mode
+
+
+class MyTeamTalkBot(TeamTalk):
+    def __init__(self, config_dict, controller=None):
+        super().__init__()
+        self.logger = bot_logger # Use the named logger
+        self.config = config_dict
+        self.controller = controller
+        conn_conf, bot_conf = self.config.get('Connection', {}), self.config.get('Bot', {})
+
+        self.host, self.tcp_port = ttstr(conn_conf.get('host')), int(conn_conf.get('port'))
+        self.udp_port, self.nickname = self.tcp_port, ttstr(conn_conf.get('nickname'))
+        self.status_message, self.username = ttstr(bot_conf.get('status_message')), ttstr(conn_conf.get('username'))
+        self.password, self.target_channel_path = ttstr(conn_conf.get('password')), ttstr(conn_conf.get('channel'))
+        self.channel_password, self.client_name = ttstr(conn_conf.get('channel_password')), ttstr(bot_conf.get('client_name'))
+
+        self.reconnect_delay_min = int(bot_conf.get('reconnect_delay_min'))
+        self.reconnect_delay_max = int(bot_conf.get('reconnect_delay_max'))
+
+        self.filtered_words = {w.strip().lower() for w in bot_conf.get('filtered_words','').split(',') if w.strip()}
+        self.admin_usernames_config = [n.strip().lower() for n in bot_conf.get('admin_usernames','').split(',') if n.strip()]
+
+        self._logged_in = self._in_channel = self._running = self._intentional_stop = self.bot_locked = False
+        self._my_user_id = self._target_channel_id = self._join_cmd_id = -1
+        self._start_time = 0; self.my_rights = UserRight.USERRIGHT_NONE
+        self.admin_user_ids, self.blocked_commands = set(), set()
+        self._all_users_cache = [] # Cache for all users
+        self._text_message_buffer, self.polls, self.warning_counts = {}, {}, {}
+        self.next_poll_id = 1; self.main_window = None
+
+        self.announce_join_leave = self.allow_channel_messages = self.allow_broadcast = True
+        self.allow_groq_pm = self.allow_groq_channel = True
+        self.welcome_message_mode, self.filter_enabled = "template", bool(self.filtered_words)
+        self.UNBLOCKABLE_COMMANDS = {'h','q','rs','block','unblock','info','whoami','rights','lock','tfilter','tgmmode'}
+
+        self.context_history_enabled = bot_conf.get('context_history_enabled', True)
+        self.debug_logging_enabled = bot_conf.get('debug_logging_enabled', False) # New attribute for debug logging
+        self.ai_system_instructions = bot_conf.get('ai_system_instructions', '') # New attribute for AI system instructions
+        self.welcome_message_instructions = bot_conf.get('welcome_message_instructions', '') # New attribute for welcome message instructions
+        self.groq_service = GroqService(
+            api_key=bot_conf.get('groq_api_key'),
+            context_history_enabled=self.context_history_enabled,
+            model_name=bot_conf.get('groq_model_name', 'openai/gpt-oss-120b'),
+            system_instructions=self.ai_system_instructions,
+            welcome_instructions=self.welcome_message_instructions
+        )
+        self.youtube_service = YouTubeService()
+        self._current_youtube_path, self._current_youtube_title = None, None
+        self._sounds_dir = os.path.join(_resource_base_dir(), "sounds")
+        self._last_activity_time = time.time()
+        # Sleep/wake state machine:
+        #   "awake"    -> normal; the idle clock resets on real user activity
+        #   "sleeping" -> waiting reminders have completed; a nickname mention wakes it
+        self._sleep_state = "awake"
+        self._reminder_cycle_count = 0
+        self._next_sleep_check_time = self._last_activity_time + SLEEP_TIMEOUT_SECONDS
+        self.task_scheduler = TaskScheduler(self)
+        self.task_scheduler.load_from_json(bot_conf.get('scheduled_tasks', '[]'))
+        self.translator_mode_enabled = False
+        self.translate_target_language = "English"
+        self.language = i18n.normalize_language(bot_conf.get('language', i18n.DEFAULT_LANGUAGE))
+        # Actions queued from background threads (e.g. after a YouTube
+        # download finishes) that must run on the main thread, since the
+        # TeamTalk SDK is not guaranteed thread-safe.
+        self._pending_main_thread_actions = queue.Queue()
+        
+        self.context_history_manager = ContextHistoryManager(
+            retention_minutes=int(bot_conf.get('context_history_retention_minutes', 60)),
+            max_messages=int(bot_conf.get('context_history_max_messages', 20))
+        )
+        if not self.groq_service.is_enabled(): self.allow_groq_pm = self.allow_groq_channel = False
+        self._apply_debug_logging_setting() # Apply initial setting
+
+    def set_groq_model(self, new_model_name):
+        self._log_to_gui(f"Attempting to set Groq model to: {new_model_name}")
+        self.groq_service.init_model(new_model_name)
+        if self.groq_service.is_enabled() and self.groq_service.get_current_model_name() == new_model_name:
+            self.config['Bot']['groq_model_name'] = new_model_name
+            self._save_runtime_config()
+            self._log_to_gui(f"Groq model successfully set to {new_model_name}.")
+            return True
+        else:
+            self._log_to_gui(f"Failed to set Groq model to {new_model_name}. Current model: {self.groq_service.get_current_model_name()}")
+            return False
+
+    def set_ai_system_instructions(self, instructions):
+        self.ai_system_instructions = instructions
+        self.config['Bot']['ai_system_instructions'] = instructions
+        self._save_runtime_config()
+        self.groq_service.set_system_instructions(instructions)
+        return True
+
+    def set_welcome_message_instructions(self, instructions):
+        self.welcome_message_instructions = instructions
+        self.config['Bot']['welcome_message_instructions'] = instructions
+        self._save_runtime_config()
+        self.groq_service.set_welcome_instructions(instructions)
+        return True
+
+    def set_main_window(self, window): self.main_window = window; self._log_to_gui("GUI window linked.")
+    def _log_to_gui(self, msg):
+        if self.main_window and wx and hasattr(wx, 'CallAfter'):
+            wx.CallAfter(self.main_window.log_message, msg)
+        else:
+            # When in non-GUI mode, just log to the standard logger
+            self.logger.info(f"[Bot] {msg}")
+    def _send_pm(self, to_id, msg): self._send_text_message(msg, TextMsgType.MSGTYPE_USER, nToUserID=to_id)
+    def _send_channel_message(self, chan_id, msg): return self._send_text_message(msg, TextMsgType.MSGTYPE_CHANNEL, nChannelID=chan_id)
+    def _send_broadcast(self, msg): return self._send_text_message(msg, TextMsgType.MSGTYPE_BROADCAST)
+
+    def _send_text_message(self, message, msg_type, **kwargs):
+        if not message: return False
+        is_chan = msg_type == TextMsgType.MSGTYPE_CHANNEL
+        if (is_chan and (self.bot_locked or not self.allow_channel_messages)) or \
+           (msg_type == TextMsgType.MSGTYPE_BROADCAST and (self.bot_locked or not self.allow_broadcast)):
+            self.logger.warning(
+                f"Suppressed outgoing message (type={msg_type}, bot_locked={self.bot_locked}, "
+                f"allow_channel_messages={self.allow_channel_messages}, allow_broadcast={self.allow_broadcast}): {message[:80]!r}"
+            )
+            return False
+        
+        # Determine recipient for context history
+        user_id = None
+        if msg_type == TextMsgType.MSGTYPE_USER and 'nToUserID' in kwargs:
+            user_id = str(kwargs['nToUserID'])
+        elif msg_type == TextMsgType.MSGTYPE_CHANNEL and 'nChannelID' in kwargs:
+            user_id = str(kwargs['nChannelID'])
+
+        # Split the message into chunks that fit within TeamTalk's message length limit
+        # TeamTalk's buildTextMessage also splits, but this pre-splitting handles very long messages more robustly
+        message_chunks = self._split_message(message, max_len=TT_STRLEN - 1) # Use TT_STRLEN from TeamTalk5
+
+        for chunk in message_chunks:
+            # buildTextMessage returns an iterable of textmessage objects
+            for msg_part_obj in buildTextMessage(chunk, msg_type, **kwargs):
+                if self.doTextMessage(msg_part_obj) == 0: # doTextMessage expects a textmessage object
+                    self._log_to_gui(f"[Error] Failed to send message part.");
+                    return False
+
+        if user_id:
+            self.context_history_manager.add_message(user_id, message, self.nickname, is_bot=True)
+        return True
+
+    def _split_message(self, message, max_len=512):
+        """Splits a message into chunks no longer than max_len. Never lets a
+        single chunk exceed max_len, even if the message contains one giant
+        unbroken 'word' (a long URL, etc.) with no spaces to break on."""
+        if not message: return []
+        if len(message) <= max_len: return [message]
+
+        chunks = []
+        current_chunk = ""
+        words = message.split(' ')
+
+        for word in words:
+            # A single word longer than the whole limit has to be hard-sliced
+            # on its own, since there's no space to break on.
+            if len(word) > max_len:
+                if current_chunk:
+                    chunks.append(current_chunk)
+                    current_chunk = ""
+                for i in range(0, len(word), max_len):
+                    piece = word[i:i + max_len]
+                    if len(piece) == max_len:
+                        chunks.append(piece)
+                    else:
+                        current_chunk = piece  # last, possibly short, piece carries on
+                continue
+
+            if len(current_chunk) + len(word) + 1 <= max_len:
+                if current_chunk: current_chunk += ' '
+                current_chunk += word
+            else:
+                chunks.append(current_chunk)
+                current_chunk = word
+        if current_chunk: chunks.append(current_chunk)
+        return chunks
+
+    def _update_admin_ids(self):
+        all_users = self.getServerUsers() or []
+        self._all_users_cache = all_users # Update the cache
+        self.admin_user_ids = {u.nUserID for u in all_users if ttstr(u.szUsername).lower() in self.admin_usernames_config}
+        if ttstr(self.username).lower() in self.admin_usernames_config: self.admin_user_ids.add(self._my_user_id)
+        self._log_to_gui(f"Resolved Admin IDs: {self.admin_user_ids or 'None'}")
+
+    def _is_admin(self, user_id): return user_id in self.admin_user_ids
+    def _find_user_by_nick(self, nick):
+        target_nick = ttstr(nick).lower()
+        try:
+            return next((u for u in self.getServerUsers() if ttstr(u.szNickname).lower() == target_nick), None)
+        except TeamTalkError as e:
+            if e.errnum != ClientError.CMDERR_NOT_LOGGEDIN: self.logger.error(f"SDK error in _find_user_by_nick: {e}"); return None
+    def _save_runtime_config(self, save_groq_key=False):
+        self._log_to_gui("Saving runtime config..."); self.config['Bot']['filtered_words'] = ','.join(sorted(list(self.filtered_words)))
+        self.config['Connection']['nickname'] = ttstr(self.nickname); self.config['Bot']['status_message'] = ttstr(self.status_message)
+        self.config['Bot']['language'] = self.language
+        if save_groq_key: self.config['Bot']['groq_api_key'] = self.groq_service.api_key
+        save_config(self.config)
+    def _mark_stopped_intentionally(self): self._intentional_stop = True
+
+    def stop(self):
+        # Always perform SDK cleanup, including after an unexpected event-loop
+        # failure that already set _running=False. The old early return could
+        # leave the TeamTalk client alive after the controller detected a crash.
+        if self._running:
+            self._log_to_gui("Stop requested.")
+            self._running = False
+            time.sleep(0.1)
+
+        self.task_scheduler.stop()
+        try:
+            if self._tt is not None and (self.getFlags() & ClientFlags.CLIENT_CONNECTED):
+                if self._logged_in:
+                    self.doLogout()
+                self.disconnect()
+        except TeamTalkError:
+            pass
+        finally:
+            try:
+                self.closeTeamTalk()
+            finally:
+                self._tt = None
+
+    def t(self, key, **kwargs):
+        return i18n.t(key, lang=self.language, **kwargs)
+
+    def _play_channel_sound(self, filename):
+        """Streams a short local .wav from /sounds into the channel via the
+        SDK's media-file streaming call. Skipped while a YouTube track is
+        playing, since the SDK only supports one active stream at a time —
+        we don't want a UI sound to interrupt someone's music."""
+        if self._current_youtube_path:
+            self.logger.debug(f"Skipping channel sound '{filename}' — YouTube playback in progress.")
+            return False
+        path = os.path.join(self._sounds_dir, filename)
+        if not os.path.exists(path):
+            self.logger.warning(f"Sound file not found: {path}")
+            return False
+        video_codec = VideoCodec()
+        video_codec.nCodec = Codec.NO_CODEC
+        return self.startStreamingMediaFileToChannel(path, video_codec)
+
+    def register_activity(self):
+        """Called whenever a real user (not another bot) does something in
+        the channel — a command, free chat, or (later) a voice command. Wakes
+        the bot up if it was asleep and resets the idle clock."""
+        self._last_activity_time = time.time()
+        self._reminder_cycle_count = 0
+        self._next_sleep_check_time = self._last_activity_time + SLEEP_TIMEOUT_SECONDS
+        if self._sleep_state != "awake":
+            self._play_channel_sound("wake_up.wav")
+        self._sleep_state = "awake"
+
+    def _check_sleep_state(self):
+        """Runs the 20-minute waiting/reminder timer.
+
+        The bot stays fully awake and able to process activity during the
+        reminder period. Every 20 minutes of inactivity, ``message.wav`` is
+        played and one cycle is counted. After the 30th cycle (10 hours),
+        the bot enters the existing ``sleeping`` state and plays ``sleep.wav``.
+        The existing wake-up path in ``register_activity()`` is intentionally
+        unchanged.
+        """
+        now = time.time()
+        if self._sleep_state == "awake" and now >= self._next_sleep_check_time:
+            self._reminder_cycle_count += 1
+
+            if self._reminder_cycle_count >= MAX_REMINDER_CYCLES:
+                # The 30th 20-minute cycle marks the end of the waiting
+                # period. Do not start another reminder timer while asleep.
+                self._play_channel_sound("sleep.wav")
+                self._sleep_state = "sleeping"
+            else:
+                self._play_channel_sound("message.wav")
+                self._next_sleep_check_time = now + REMINDER_INTERVAL_SECONDS
+
+    def _start_youtube_stream(self, file_path):
+        video_codec = VideoCodec()
+        video_codec.nCodec = Codec.NO_CODEC
+        return self.startStreamingMediaFileToChannel(file_path, video_codec)
+
+    def onStreamMediaFile(self, mediafileinfo):
+        # Fired by the SDK as the streamed file's status changes (started,
+        # playing, finished, error, aborted...). Mainly useful to clean up
+        # the temp file once playback naturally finishes.
+        try:
+            from TeamTalk5 import MediaFileStatus
+            status = mediafileinfo.nStatus
+            if status in (MediaFileStatus.MFS_FINISHED, MediaFileStatus.MFS_ERROR, MediaFileStatus.MFS_ABORTED):
+                if self._current_youtube_path:
+                    self.youtube_service.cleanup(self._current_youtube_path)
+                    self._current_youtube_path, self._current_youtube_title = None, None
+        except Exception as e:
+            self.logger.warning(f"Error handling onStreamMediaFile: {e}")
+
+    def start(self):
+        self._log_to_gui(f"Initializing bot session..."); self._start_time = time.time()
+        self._intentional_stop = False; self._running = True
+        self.task_scheduler.start()
+        try:
+            if not self.connect(self.host, self.tcp_port, self.udp_port): self._running = False; return
+            self._log_to_gui("Connection started. Entering event loop.")
+            while self._running:
+                try:
+                    self.runEventLoop(100)
+                    self._process_pending_main_thread_actions()
+                    self._check_sleep_state()
+                except TeamTalkError as e:
+                    self._log_to_gui(f"[SDK Critical] Connection error: {e.errmsg}"); self._running = False
+                except Exception as e:
+                    # A bug in an event callback (e.g. handling a text message) must
+                    # never take the whole bot offline. Log it and keep the loop alive.
+                    self.logger.error(f"Unhandled error in event loop: {e}", exc_info=True)
+                    self._log_to_gui(f"[Error] Unhandled error in event loop: {e}")
+        except TeamTalkError as e: self._log_to_gui(f"[SDK Critical] Connection error: {e.errmsg}"); self._running = False
+        finally: self.stop()
+
+    def _process_pending_main_thread_actions(self):
+        """Runs any actions queued from background threads (e.g. a YouTube
+        download that just finished) safely on the main thread."""
+        while True:
+            try:
+                action = self._pending_main_thread_actions.get_nowait()
+            except queue.Empty:
+                break
+            try:
+                action(self)
+            except Exception as e:
+                self.logger.error(f"Error running queued main-thread action: {e}", exc_info=True)
+
+    def _initiate_restart(self):
+        self._log_to_gui("--- BOT RESTART SEQUENCE INITIATED ---")
+        if self.controller:
+            self.controller.request_restart()
+        else:
+            self._log_to_gui("[CRITICAL] No controller found! Cannot restart.")
+
+    def onConnectSuccess(self): self._log_to_gui("Connected. Logging in..."); self.doLogin(self.nickname, self.username, self.password, self.client_name)
+    def onConnectFailed(self): self._log_to_gui("[Error] Connection failed."); self._handle_reconnect()
+    def onConnectionLost(self): self._log_to_gui("[Error] Connection lost."); self._logged_in = self._in_channel = False; self._handle_reconnect()
+    def _handle_reconnect(self):
+        if self._running and not self._intentional_stop:
+            delay = random.randint(self.reconnect_delay_min, self.reconnect_delay_max)
+            self._log_to_gui(f"Reconnecting in {delay}s..."); time.sleep(delay)
+            if self._running and not self._intentional_stop:
+                self._initiate_restart()
+
+    def onCmdError(self, cmd_id, err):
+        self._log_to_gui(f"[Cmd Error {cmd_id}] {err.nErrorNo} - {ttstr(err.szErrorMsg)}")
+        if err.nErrorNo in [ClientError.CMDERR_INVALID_ACCOUNT, ClientError.CMDERR_SERVER_BANNED]: self._mark_stopped_intentionally()
+
+    def onCmdMyselfLoggedIn(self, user_id, user_acc):
+        self._logged_in, self._my_user_id, self.my_rights = True, user_id, user_acc.uUserRights
+        self._log_to_gui(f"Login success! My ID: {user_id}, Rights: {self.my_rights:#010x}")
+        if self.main_window: wx.CallAfter(self.main_window.Show); wx.CallAfter(self.main_window.SetTitle, f"Bot - {ttstr(self.nickname)}"); wx.CallAfter(self.main_window.update_feature_list)
+        if self.status_message: self.doChangeStatus(0, self.status_message)
+        self._update_admin_ids()
+        chan_id = self.getChannelIDFromPath(self.target_channel_path) or self.getRootChannelID()
+        if chan_id > 0: self._target_channel_id = chan_id; self._join_cmd_id = self.doJoinChannelByID(chan_id, self.channel_password)
+    
+    def onCmdMyselfLoggedOut(self): self._log_to_gui("Logged out."); self._logged_in = False
+    
+    def onCmdUserJoinedChannel(self, user):
+        if user.nUserID == self._my_user_id: self._in_channel = True; self._log_to_gui(f"Joined channel ID: {user.nChannelID}")
+        else:
+            self._update_admin_ids() # Update admin IDs when a user joins
+            if self.announce_join_leave and user.nChannelID == self.getMyChannelID():
+                welcome_msg = self.groq_service.generate_welcome_message(ttstr(user.szNickname)) if self.welcome_message_mode == "groq" and self.groq_service.is_enabled() else f"Welcome, {ttstr(user.szNickname)}!"
+                self._send_channel_message(user.nChannelID, welcome_msg)
+    
+    def onCmdUserLeftChannel(self, chan_id, user):
+        if user.nUserID == self._my_user_id: self._in_channel = False; self._log_to_gui("Left channel.")
+    
+    def onCmdUserTextMessage(self, textmessage):
+        if textmessage.nFromUserID == self._my_user_id or not self._logged_in: return
+        key = (textmessage.nFromUserID, textmessage.nMsgType, textmessage.nChannelID)
+        self._text_message_buffer[key] = self._text_message_buffer.get(key, "") + ttstr(textmessage.szMessage)
+        if textmessage.bMore: return
+        full_msg = self._text_message_buffer.pop(key, "")
+        if not full_msg: return
+
+        sender_user = None
+        try:
+            sender_user = self.getUser(textmessage.nFromUserID)
+        except Exception as e:
+            self.logger.warning(f"Could not resolve user {textmessage.nFromUserID}: {e}")
+        sender_nick = ttstr(sender_user.szNickname) if sender_user else f"UserID_{textmessage.nFromUserID}"
+
+        # Add incoming message to context history
+        if textmessage.nMsgType == TextMsgType.MSGTYPE_USER:
+            self.context_history_manager.add_message(str(textmessage.nFromUserID), full_msg, sender_nick, is_bot=False)
+
+        log_prefix = ""
+        if textmessage.nMsgType == TextMsgType.MSGTYPE_CHANNEL: log_prefix=f"[{ttstr(self.getChannelPath(textmessage.nChannelID))}]"
+        elif textmessage.nMsgType == TextMsgType.MSGTYPE_USER: log_prefix="[PM]"
+        self._log_to_gui(f"{log_prefix} <{sender_nick}> {full_msg}")
+
+        command_handler.handle_message(self, textmessage, full_msg)
+
+    def onCmdUserUpdate(self, user):
+        if user and user.nUserID == self._my_user_id:
+            if ttstr(user.szNickname) != self.nickname or ttstr(user.szStatusMsg) != self.status_message:
+                self.nickname = ttstr(user.szNickname); self.status_message = ttstr(user.szStatusMsg)
+                self._log_to_gui(f"My info updated: Nick='{self.nickname}', Status='{self.status_message}'")
+                self._save_runtime_config()
+        self._update_admin_ids() # Update admin IDs when a user updates
+
+    def toggle_feature(self, attr_name, on_msg, off_msg):
+        setattr(self, attr_name, not getattr(self, attr_name))
+        new_state = getattr(self, attr_name)
+        self._log_to_gui(f"[Toggle] {on_msg if new_state else off_msg}")
+        return new_state
+    def toggle_announce_join_leave(self): self.toggle_feature('announce_join_leave', "JCL ON", "JCL OFF")
+    def toggle_allow_channel_messages(self): self.toggle_feature('allow_channel_messages', "Chan Msgs ON", "Chan Msgs OFF")
+    def toggle_allow_broadcast(self): self.toggle_feature('allow_broadcast', "Broadcasts ON", "Broadcasts OFF")
+    def toggle_allow_groq_pm(self): self.toggle_feature('allow_groq_pm', "Groq PM ON", "Groq PM OFF")
+    def toggle_allow_groq_channel(self): self.toggle_feature('allow_groq_channel', "Groq Chan ON", "Groq Chan OFF")
+    def toggle_bot_lock(self): self.toggle_feature('bot_locked', "Bot Lock ON", "Bot Lock OFF")
+    def toggle_filter_enabled(self):
+        if not self.filter_enabled and not self.filtered_words:
+            self._log_to_gui("[Warn] Cannot enable filter: no words defined."); return
+        self.toggle_feature('filter_enabled', "Filter ON", "Filter OFF")
+
+    def toggle_context_history_enabled(self):
+        self.toggle_feature('context_history_enabled', "Context History ON", "Context History OFF")
+
+    def _apply_debug_logging_setting(self):
+        if self.debug_logging_enabled:
+            self.logger.setLevel(logging.DEBUG)
+            self.logger.info("Debug logging is now ON.")
+        else:
+            self.logger.setLevel(logging.INFO)
+            self.logger.info("Debug logging is now OFF.")
+
+    def toggle_debug_logging(self):
+        self.debug_logging_enabled = not self.debug_logging_enabled
+        self._apply_debug_logging_setting()
+        self.config['Bot']['debug_logging_enabled'] = str(self.debug_logging_enabled)
+        self._save_runtime_config()

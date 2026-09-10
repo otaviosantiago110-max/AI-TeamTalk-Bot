@@ -1,0 +1,15 @@
+*.log
+*.config
+*.ini
+__pycache__/
+.env
+venv/
+*.db
+config.json.env 
+aditional.txt
+instance/
+*.pyc
+dist/
+build/
+.vscode/
+.idea/

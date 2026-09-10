@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="{{ current_lang }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ t("web.setup.title") }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>{{ t("web.setup.title") }}</h1>
+        <p>{{ t("web.setup.description") }}</p>
+
+        <form id="configForm" action="/setup_config" method="POST">
+            {% for section, options in default_config.items() %}
+            <h2>{{ t("web.config.section." ~ section) }}</h2>
+            {% for key, value in options.items() if key != 'setup_complete' %}
+            <div class="form-group">
+                <label for="{{ section }}_{{ key }}">{{ t("web.config.field." ~ section ~ "." ~ key) }}:</label>
+                {% if key == 'language' %}
+                <select id="{{ section }}_{{ key }}" name="{{ section }}_{{ key }}">
+                    <option value="pt_BR" {% if value == 'pt_BR' %}selected{% endif %}>Português (Brasil)</option>
+                    <option value="en" {% if value == 'en' %}selected{% endif %}>English</option>
+                </select>
+                {% elif value == 'True' or value == 'False' %}
+                <input type="checkbox" id="{{ section }}_{{ key }}" name="{{ section }}_{{ key }}" {% if value == 'True' %}checked{% endif %}>
+                {% else %}
+                <input type="text" id="{{ section }}_{{ key }}" name="{{ section }}_{{ key }}" value="{{ value }}">
+                {% endif %}
+            </div>
+            {% endfor %}
+            {% endfor %}
+            <button type="submit" class="btn btn-primary">{{ t("web.setup.submit") }}</button>
+        </form>
+
+        <div id="message" class="alert" style="display:none;"></div>
+    </div>
+</body>
+</html>
