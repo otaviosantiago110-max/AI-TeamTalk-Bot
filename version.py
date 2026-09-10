@@ -1,4 +1,4 @@
-VERSION = "0.3.0.0"
+VERSION = "0.3.0.1"
 TAG = f"v{VERSION}"
 GITHUB_OWNER = "otaviosantiago110-max"
 GITHUB_REPOSITORY = "AI-TeamTalk-Bot"

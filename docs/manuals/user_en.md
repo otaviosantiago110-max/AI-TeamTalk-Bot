@@ -1,6 +1,6 @@
 # User Manual — AI TeamTalk Bot
 
-> Version: v0.3.0.0 — version 3 of the bot, with the current systems enabled.
+> Version: v0.3.0.1 — version 3 of the bot, with the current systems enabled.
 
 This manual is for anyone using the bot on the TeamTalk server. You don't need to be an admin for anything listed here.
 
@@ -76,3 +76,7 @@ If the server has other bots (e.g. a music bot), this bot **automatically ignore
 ## Language
 
 The bot replies in **Brazilian Portuguese by default**. An admin can switch it to English with the `set_language` command. The web control panel follows the same configured language.
+
+### Voice
+
+The bot can listen to user audio, recognize wake phrases in supported languages, transcribe with Whisper through Groq, and answer using Edge TTS. The session ends after 3 seconds without new speech.

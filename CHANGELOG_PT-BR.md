@@ -1,3 +1,10 @@
+## v0.3.0.1 — Sistema de voz e correções do YouTube
+
+- Sistema de voz integrado com captura de áudio do TeamTalk, transcrição via Whisper no Groq e respostas via Edge TTS.
+- Ativação por frase de chamada multilíngue, com sessão de 3 segundos de inatividade.
+- Sons `appear.wav` e `disappear.wav` usados na ativação e desativação.
+- Arquivos baixados pelo `/dl` passam a usar o título do vídeo como nome do MP3, com sanitização para nomes inválidos no Windows.
+
 # Changelog — AI TeamTalk Bot
 
 ## v0.3.0.0 — Grande atualização e consolidação da versão 3

@@ -3,7 +3,7 @@ import threading
 import time
 
 from version import RELEASE_ASSET_NAME, TAG
-from .checker import fetch_latest_release
+from .checker import fetch_latest_release, fetch_latest_release_status
 from .downloader import download_release
 from .installer import launch_installer, prepare_install
 
@@ -49,9 +49,12 @@ class UpdateManager:
 
     def _check_worker(self):
         try:
-            release = fetch_latest_release(RELEASE_ASSET_NAME, TAG, self.logger)
+            self.bot._pending_main_thread_actions.put(lambda bot: bot._send_system_channel_message(bot._target_channel_id, bot.t("updater.checking")))
+            release, up_to_date = fetch_latest_release_status(RELEASE_ASSET_NAME, TAG, self.logger)
             if release:
                 self.bot._pending_main_thread_actions.put(lambda bot: self._announce_update(bot, release))
+            elif up_to_date:
+                self.bot._pending_main_thread_actions.put(lambda bot: bot._send_system_channel_message(bot._target_channel_id, bot.t("updater.up_to_date")))
         except Exception as exc:
             self.logger.warning("Update check failed: %s", exc, exc_info=True)
         finally:
@@ -104,7 +107,7 @@ class UpdateManager:
     def _download_worker(self, release):
         try:
             path = download_release(release, self._progress)
-            plan = prepare_install(path)
+            plan = prepare_install(path) if getattr(self.bot, "_is_frozen", False) else None
             with self._lock:
                 self._download_path = path
             self.bot._pending_main_thread_actions.put(lambda bot: self._download_completed(bot, release, plan))
@@ -124,6 +127,9 @@ class UpdateManager:
         bot._send_system_channel_message(bot._target_channel_id, bot.t("updater.download_complete", version=release.tag))
         bot._log_to_gui(f"Update package downloaded and validated: {release.tag}")
         try:
+            if plan is None:
+                bot._log_to_gui(f"Update package downloaded in source mode: {release.tag}")
+                return
             with self._lock:
                 path = self._download_path
             plan = prepare_install(path)

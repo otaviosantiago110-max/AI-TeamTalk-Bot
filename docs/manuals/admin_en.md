@@ -1,6 +1,6 @@
 # Admin Manual — AI TeamTalk Bot
 
-> Version: v0.3.0.0 — version 3 of the bot, with the current systems enabled.
+> Version: v0.3.0.1 — version 3 of the bot, with the current systems enabled.
 
 This manual covers admin-only commands. Admins can also use every command from the [user manual](user_en.md). Only users configured as admins (via `admin_usernames` in `config.ini`, or the admin list) can use the commands below — anyone else who tries gets an "unauthorized" notice.
 

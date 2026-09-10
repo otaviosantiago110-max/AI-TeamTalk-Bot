@@ -33,7 +33,7 @@ def is_newer_version(remote_tag, current_tag):
     return remote is not None and current is not None and remote > current
 
 
-def fetch_latest_release(asset_name, current_tag, logger=None):
+def fetch_latest_release_status(asset_name, current_tag, logger=None):
     logger = logger or logging.getLogger(__name__)
     response = requests.get(
         API_URL,
@@ -49,7 +49,7 @@ def fetch_latest_release(asset_name, current_tag, logger=None):
     tag = str(data.get("tag_name", "")).strip()
 
     if not is_newer_version(tag, current_tag):
-        return None
+        return None, parse_version(tag) is not None
 
     asset = next(
         (item for item in data.get("assets", []) if item.get("name") == asset_name),
@@ -57,7 +57,7 @@ def fetch_latest_release(asset_name, current_tag, logger=None):
     )
     if not asset:
         logger.warning("Release %s exists, but asset %s was not found.", tag, asset_name)
-        return None
+        return None, False
 
     return ReleaseInfo(
         tag=tag,
@@ -66,4 +66,9 @@ def fetch_latest_release(asset_name, current_tag, logger=None):
         asset_url=str(asset.get("browser_download_url")),
         asset_size=int(asset.get("size") or 0),
         digest=str(asset.get("digest") or ""),
-    )
+    ), False
+
+
+def fetch_latest_release(asset_name, current_tag, logger=None):
+    release, _ = fetch_latest_release_status(asset_name, current_tag, logger)
+    return release

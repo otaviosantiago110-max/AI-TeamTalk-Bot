@@ -1,6 +1,6 @@
 # Admin Manual — Ai Bot (TeamTalk)
 
-> Bot version: **v0.3.0.0** — version 3 of the bot, with the current systems enabled.
+> Bot version: **v0.3.0.1** — version 3 of the bot, with the current systems enabled.
 
 This manual covers commands exclusive to **admins** (configured via `admin_usernames` in `config.ini`, or registered as Super Admin/Admin in the Web UI). For regular user commands, see `MANUAL_USUARIO_en.md`.
 
@@ -97,7 +97,7 @@ When enabled, **any plain message** (no command) gets translated instead of chat
 | `sleep.wav` | Bot enters sleep mode (20 min of no activity). |
 | `message.wav` | Every 20 min while asleep, up to 29 times (reminder). |
 | `wake_up.wav` | Bot wakes up (by name mention, or after giving up on reminders). |
-| `appear.wav` / `disappear.wav` | Reserved for the future voice system (activation/deactivation). |
+| `appear.wav` / `disappear.wav` | Used for voice activation/deactivation. |
 | `toggle.wav` | Mode switch (e.g. translator). |
 | `notify1-4.wav` | Task scheduler notifications. |
 | `update_found.wav` / `updating.wav` | Used by the auto-updater. |
@@ -116,7 +116,7 @@ In `config.ini`, `[WebUI]` section:
 ## Known pending work (future versions)
 
 - **Auto-updater**: check and download new versions from GitHub. Automatic installation is reserved for the next stage.
-- **Voice recognition**: spoken wake-word activation, voice commands. *(To be implemented later — the most technically complex piece.)*
+- **Voice recognition**: multilingual wake-word activation, TeamTalk audio capture, Groq Whisper transcription, and Edge TTS responses.
 
 ---
-*Manual generated for Ai Bot — v0.3.0.0.0
+*Manual generated for Ai Bot — v0.3.0.1.0

@@ -1,6 +1,6 @@
 # Manual do Usuário — AI TeamTalk Bot
 
-> Versão: **v0.3.0.0** — versão 3 do bot, com os sistemas atuais ativados.
+> Versão: **v0.3.0.1** — versão 3 do bot, com os sistemas atuais ativados.
 
 Este manual é para qualquer pessoa que queira usar o bot no servidor TeamTalk.
 
@@ -77,3 +77,7 @@ O comando `/dl` **não recebe URL, busca ou outro argumento**. Ele usa o vídeo 
 ## Idioma
 
 O idioma das respostas do bot é definido pelo administrador.
+
+### Voz
+
+O bot pode escutar o áudio dos usuários, reconhecer frases de chamada em idiomas suportados, transcrever com Whisper via Groq e responder por voz usando Edge TTS. A sessão termina após 3 segundos sem nova fala.

@@ -4,6 +4,8 @@ import shutil
 import subprocess
 import tempfile
 import uuid
+import re
+import unicodedata
 
 try:
     import yt_dlp
@@ -80,10 +82,24 @@ class YouTubeService:
             return f"https://www.youtube.com/watch?v={video_id}"
         return video_id or ""
 
+    def _safe_filename(self, title):
+        title = unicodedata.normalize("NFKC", title or "YouTube")
+        title = re.sub(r"[<>:\"/\\|?*\x00-\x1f]", "_", title)
+        title = re.sub(r"\s+", " ", title).strip(" .")
+        if not title:
+            title = "YouTube"
+        if title.upper() in {"CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"}:
+            title = "_" + title
+        return title[:180]
+
     def _download_entry(self, entry):
         uid = uuid.uuid4().hex
+        title = entry.get("title") or "YouTube"
+        base_name = self._safe_filename(title)
         source_template = os.path.join(self.download_dir, f"{uid}.%(ext)s")
-        output_path = os.path.join(self.download_dir, f"{uid}.mp3")
+        output_path = os.path.join(self.download_dir, f"{base_name}.mp3")
+        if os.path.exists(output_path):
+            output_path = os.path.join(self.download_dir, f"{base_name}_{uid[:8]}.mp3")
         source_cmd = [
             self.yt_dlp_exe,
             "--no-warnings",

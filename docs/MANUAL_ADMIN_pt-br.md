@@ -1,6 +1,6 @@
 # Manual do Administrador — Ai Bot (TeamTalk)
 
-> Versão do bot: **v0.3.0.0** — versão 3 do bot, com os sistemas atuais ativados.
+> Versão do bot: **v0.3.0.1** — versão 3 do bot, com os sistemas atuais ativados.
 
 Este manual cobre os comandos exclusivos de **administradores** (configurados em `admin_usernames` no `config.ini`, ou registrados como Super Admin/Admin na Web UI). Para comandos de usuário comum, veja `MANUAL_USUARIO_pt-br.md`.
 
@@ -119,4 +119,4 @@ No `config.ini`, seção `[WebUI]`:
 - **Reconhecimento de voz**: ativação por palavra-chave falada, comandos por voz. *(A implementar depois — é a parte mais complexa tecnicamente.)*
 
 ---
-*Manual gerado para o Ai Bot — v0.3.0.0.0
+*Manual gerado para o Ai Bot — v0.3.0.1.0

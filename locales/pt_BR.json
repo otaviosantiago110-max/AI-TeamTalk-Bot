@@ -307,6 +307,7 @@
   "web.status.server.my_user_id": "Meu ID de usuário",
   "web.status.server.my_rights": "Minhas permissões",
   "web.status.server.client_name": "Nome do cliente",
+  "web.status.server.application_version": "Versão do aplicativo",
   "web.status.server.status_message": "Mensagem de status",
   "web.status.server.logged_in": "Conectado",
   "web.status.server.in_channel": "No canal",
@@ -378,7 +379,7 @@
   "developer.program": "Programa: {name}",
   "developer.version": "Versão: {version}",
   "developer.developer": "Desenvolvedor: {name}",
-  "updater.update_available": "Nova atualização {version} disponível. Deseja baixar agora? Responda Y para sim ou N para não.",
+  "updater.update_available": "Uma nova versão foi encontrada: {version}. Deseja baixar agora? Responda Y para sim ou N para não.",
   "updater.download_started": "Iniciando o download da atualização {version}.",
   "updater.download_complete": "A atualização {version} foi baixada e validada.",
   "updater.install_started": "Instalando a atualização {version}. O bot será reiniciado.",
@@ -403,5 +404,7 @@
   "yt.downloading": "Baixando '{query}' em MP3 320 kbps...",
   "yt.upload_started": "Upload iniciado no canal: {title}",
   "yt.upload_failed": "Falha ao enviar o MP3 para o canal.",
-  "help.ytcontrols": "- ytpause/ytresume/ytforward/ytback/ytnext/ytprev: Controla pausa, avanço, retrocesso e fila.\n- ytplaylist <URL>: Carrega uma playlist.\n- ytclear: Limpa a fila.\n- /dl: Baixa o vídeo atual do YouTube em MP3 320 kbps e envia ao canal."
+  "help.ytcontrols": "- ytpause/ytresume/ytforward/ytback/ytnext/ytprev: Controla pausa, avanço, retrocesso e fila.\n- ytplaylist <URL>: Carrega uma playlist.\n- ytclear: Limpa a fila.\n- /dl: Baixa o vídeo atual do YouTube em MP3 320 kbps e envia ao canal.",
+  "updater.checking": "Verificando atualizações.",
+  "updater.up_to_date": "Seu cliente está atualizado."
 }

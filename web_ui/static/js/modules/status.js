@@ -109,6 +109,7 @@ export async function fetchStatus() {
                 "my_user_id": t('web.status.server.my_user_id'),
                 "my_rights": t('web.status.server.my_rights'),
                 "client_name": t('web.status.server.client_name'),
+                "application_version": t('web.status.server.application_version'),
                 "status_message": t('web.status.server.status_message'),
                 "logged_in": t('web.status.server.logged_in'),
                 "in_channel": t('web.status.server.in_channel')

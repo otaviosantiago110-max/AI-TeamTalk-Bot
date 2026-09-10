@@ -14,6 +14,7 @@ from handlers import command_handler
 from services.groq_service import GroqService
 from services.youtube_service import YouTubeService
 from services.task_scheduler import TaskScheduler
+from services.voice_service import VoiceService
 import i18n
 from context_history_manager import ContextHistoryManager
 from logger_config import bot_logger # Import the named logger
@@ -79,6 +80,9 @@ class MyTeamTalkBot(TeamTalk):
             welcome_instructions=self.welcome_message_instructions
         )
         self.youtube_service = YouTubeService()
+        self.voice_service = VoiceService(self)
+        self._voice_response_path = None
+        self._voice_response_channel_id = -1
         self._current_youtube_path, self._current_youtube_title = None, None
         self._youtube_queue = []
         self._youtube_index = -1
@@ -94,6 +98,7 @@ class MyTeamTalkBot(TeamTalk):
         self._reminder_cycle_count = 0
         self._next_sleep_check_time = self._last_activity_time + SLEEP_TIMEOUT_SECONDS
         self._updating_sound_active = False
+        self._is_frozen = bool(getattr(sys, "frozen", False))
         self.update_manager = UpdateManager(self)
         self.task_scheduler = TaskScheduler(self)
         self.task_scheduler.load_from_json(bot_conf.get('scheduled_tasks', '[]'))
@@ -380,6 +385,22 @@ class MyTeamTalkBot(TeamTalk):
         except Exception as e:
             self.logger.warning(f"Error handling file transfer: {e}")
 
+    def _play_voice_response(self, path, channel_id):
+        if not path or not os.path.exists(path) or channel_id <= 0:
+            return False
+        try:
+            self.stopStreamingMediaFileToChannel()
+        except Exception:
+            pass
+        video_codec = VideoCodec()
+        video_codec.nCodec = Codec.NO_CODEC
+        if not self.startStreamingMediaFileToChannel(path, video_codec):
+            self.youtube_service.cleanup(path)
+            return False
+        self._voice_response_path = path
+        self._voice_response_channel_id = channel_id
+        return True
+
     def onStreamMediaFile(self, mediafileinfo):
         # Fired by the SDK as the streamed file's status changes (started,
         # playing, finished, error, aborted...). Mainly useful to clean up
@@ -387,6 +408,14 @@ class MyTeamTalkBot(TeamTalk):
         try:
             from TeamTalk5 import MediaFileStatus
             status = mediafileinfo.nStatus
+            if self._voice_response_path and status in (MediaFileStatus.MFS_FINISHED, MediaFileStatus.MFS_ERROR, MediaFileStatus.MFS_ABORTED):
+                path = self._voice_response_path
+                self._voice_response_path = None
+                self._voice_response_channel_id = -1
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
             if self._current_youtube_path:
                 self._youtube_elapsed_ms = int(mediafileinfo.uElapsedMSec)
                 self._youtube_duration_ms = int(mediafileinfo.uDurationMSec)
@@ -478,15 +507,27 @@ class MyTeamTalkBot(TeamTalk):
     def onCmdMyselfLoggedOut(self): self._log_to_gui("Logged out."); self._logged_in = False
     
     def onCmdUserJoinedChannel(self, user):
-        if user.nUserID == self._my_user_id: self._in_channel = True; self._log_to_gui(f"Joined channel ID: {user.nChannelID}")
+        if user.nUserID == self._my_user_id:
+            self._in_channel = True; self._log_to_gui(f"Joined channel ID: {user.nChannelID}")
+            try:
+                for channel_user in self.getChannelUsers(user.nChannelID):
+                    if channel_user.nUserID != self._my_user_id:
+                        self.voice_service.enable_user(channel_user.nUserID)
+            except Exception as exc:
+                self.logger.warning(f"Could not enable voice audio for channel users: {exc}")
         else:
+            self.voice_service.enable_user(user.nUserID)
             self._update_admin_ids() # Update admin IDs when a user joins
             if self.announce_join_leave and user.nChannelID == self.getMyChannelID():
                 welcome_msg = self.groq_service.generate_welcome_message(ttstr(user.szNickname)) if self.welcome_message_mode == "groq" and self.groq_service.is_enabled() else f"Welcome, {ttstr(user.szNickname)}!"
                 self._send_channel_message(user.nChannelID, welcome_msg)
     
     def onCmdUserLeftChannel(self, chan_id, user):
-        if user.nUserID == self._my_user_id: self._in_channel = False; self._log_to_gui("Left channel.")
+        if user.nUserID == self._my_user_id:
+            self._in_channel = False; self.voice_service.deactivate(); self._log_to_gui("Left channel.")
+        else:
+            self.voice_service.disable_user(user.nUserID)
+            self.voice_service.deactivate(user.nUserID)
     
     def onCmdUserTextMessage(self, textmessage):
         if textmessage.nFromUserID == self._my_user_id or not self._logged_in: return

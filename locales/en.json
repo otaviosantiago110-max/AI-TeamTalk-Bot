@@ -307,6 +307,7 @@
   "web.status.server.my_user_id": "My User ID",
   "web.status.server.my_rights": "My Rights",
   "web.status.server.client_name": "Client Name",
+  "web.status.server.application_version": "Application Version",
   "web.status.server.status_message": "Status Message",
   "web.status.server.logged_in": "Logged In",
   "web.status.server.in_channel": "In Channel",
@@ -378,7 +379,7 @@
   "developer.program": "Program: {name}",
   "developer.version": "Version: {version}",
   "developer.developer": "Developer: {name}",
-  "updater.update_available": "New update {version} is available. Download it now? Reply Y for yes or N for no.",
+  "updater.update_available": "A new version was found: {version}. Do you want to download it now? Reply Y for yes or N for no.",
   "updater.download_started": "Starting the download of update {version}.",
   "updater.download_complete": "Update {version} was downloaded and validated.",
   "updater.install_started": "Installing update {version}. The bot will restart.",
@@ -403,5 +404,7 @@
   "yt.downloading": "Downloading '{query}' as 320 kbps MP3...",
   "yt.upload_started": "Upload started in the channel: {title}",
   "yt.upload_failed": "Failed to upload the MP3 to the channel.",
-  "help.ytcontrols": "- ytpause/ytresume/ytforward/ytback/ytnext/ytprev: Control pause, seek and queue.\n- ytplaylist <URL>: Load a playlist.\n- ytclear: Clear the queue.\n- /dl: Download the current YouTube video as a 320 kbps MP3 and upload it to the channel."
+  "help.ytcontrols": "- ytpause/ytresume/ytforward/ytback/ytnext/ytprev: Control pause, seek and queue.\n- ytplaylist <URL>: Load a playlist.\n- ytclear: Clear the queue.\n- /dl: Download the current YouTube video as a 320 kbps MP3 and upload it to the channel.",
+  "updater.checking": "Checking for updates.",
+  "updater.up_to_date": "Your client is up to date."
 }

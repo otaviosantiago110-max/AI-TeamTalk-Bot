@@ -10,7 +10,7 @@ datas = [
     ('tools/ffmpeg.exe', 'tools'),
 ]
 binaries = []
-hiddenimports = ['flask_sqlalchemy', 'sqlalchemy.dialects.sqlite', 'groq']
+hiddenimports = ['flask_sqlalchemy', 'sqlalchemy.dialects.sqlite', 'groq', 'edge_tts']
 tmp_ret = collect_all('wx')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 

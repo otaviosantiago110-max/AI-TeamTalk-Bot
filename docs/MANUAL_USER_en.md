@@ -1,6 +1,6 @@
 # User Manual — Ai Bot (TeamTalk)
 
-> Bot version: **Public Alpha v0.2.0** — still in development, may be unstable.
+> Bot version: **v0.3.0.1** — version 3 of the bot, with the current systems enabled.
 
 This manual covers every command available to **any user** on the server. For admin-only commands, see `MANUAL_ADMIN_en.md`.
 
@@ -43,22 +43,21 @@ If nobody interacts with the bot for **20 minutes**, it "falls asleep" (plays a 
 
 ## YouTube
 
-| Command | What it does |
+| Comando | O que faz |
 |---|---|
-| `yt <search or link>` 🔊 | Searches YouTube (or uses a direct link) and **plays the audio in the channel**. |
-| `ytstop` 🔊 | Stops the current playback. |
+| `yt <busca ou link>` / `/yt <busca ou link>` | Pesquisa ou abre um vídeo e inicia a reprodução. |
+| `ytstop` / `/ytstop` | Para a reprodução e limpa a fila. |
+| `ytpause` / `/ytpause` | Pausa. |
+| `ytresume` / `/ytresume` | Continua. |
+| `ytforward [segundos]` / `/ytforward [segundos]` | Avança o tempo; padrão 10 segundos. |
+| `ytback [segundos]` / `/ytback [segundos]` | Retrocede o tempo; padrão 10 segundos. |
+| `ytnext` / `/ytnext` | Próximo vídeo. |
+| `ytprev` / `/ytprev` | Vídeo anterior. |
+| `ytplaylist <link>` / `/ytplaylist <link>` | Carrega uma playlist na fila. |
+| `ytclear` / `/ytclear` | Limpa a fila. |
+| `dl` / `/dl` | Baixa **o vídeo que está tocando atualmente**; não recebe URL ou busca. |
 
-> The bot ignores commands belonging to *other* bots sharing the channel (like `/p`, `/pause`, `/stop` from a music bot), so there's no conflict between them.
-
-
-| Command | What it does |
-|---|---|
-
-
-| Command | What it does |
-|---|---|
-
-*This info can also be asked naturally through the AI — e.g. "tell me a random quote".*
+O `/dl` baixa o áudio com `yt-dlp.exe`, converte para MP3 **320 kbps / 48 kHz** com `ffmpeg.exe` e envia o arquivo pelo TeamTalk.
 
 ## Polls
 
@@ -73,4 +72,8 @@ If nobody interacts with the bot for **20 minutes**, it "falls asleep" (plays a 
 The bot's reply language (including this manual) matches whatever the admin configured. Check with `info` if you're not sure which one is set.
 
 ---
-*Manual generated for Ai Bot — Public Alpha v0.2.0.0
+*Manual generated for Ai Bot — v0.3.0.1.0
+
+## Voice
+
+The bot can listen to user audio in the channel, detect wake phrases in supported languages, transcribe speech with Whisper through Groq, and answer using Edge TTS. The voice session ends after 3 seconds without new speech. `appear.wav` indicates activation and `disappear.wav` indicates deactivation.

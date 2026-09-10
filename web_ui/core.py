@@ -7,6 +7,7 @@ from bot_controller import ApplicationController
 from config_manager import load_config, DEFAULT_CONFIG
 from logger_config import setup_logging, bot_logger
 from .database import db
+from version import VERSION
 import i18n
 
 load_dotenv()
@@ -47,7 +48,7 @@ def create_app():
         # Expose the Web UI translations to JavaScript so dynamic elements use the same locale as the server-rendered page.
         locale_data = i18n._load(lang)
         web_i18n = {key: value for key, value in locale_data.items() if key.startswith('web.')}
-        return dict(t=lambda key, **kwargs: i18n.t(key, lang=lang, **kwargs), current_lang=lang, web_i18n=web_i18n)
+        return dict(t=lambda key, **kwargs: i18n.t(key, lang=lang, **kwargs), current_lang=lang, web_i18n=web_i18n, application_version=VERSION, application_version_label=f"v{VERSION}", teamtalk_version="5.15.0")
 
     with app.app_context():
         db.create_all()

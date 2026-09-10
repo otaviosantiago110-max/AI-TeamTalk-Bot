@@ -1,67 +1,73 @@
-# Manual do Usuário — Ai Bot (TeamTalk)
+# Manual do Usuário — AI TeamTalk Bot
 
-> Versão do bot: **Alfa pública v0.2.0** — ainda em desenvolvimento, pode conter instabilidades.
+> Versão: **v0.3.0.1** — versão 3 do bot, com os sistemas atuais ativados.
 
-Este manual cobre todos os comandos disponíveis para **qualquer usuário** do servidor. Para comandos administrativos, veja o `MANUAL_ADMIN_pt-br.md`.
+Este manual é para qualquer pessoa que queira usar o bot no servidor TeamTalk.
 
-## Como os comandos funcionam
+## Como conversar com o bot
 
-- **Por PM (mensagem privada)**: digite o comando **sem barra**. Ex: `c oi, tudo bem?`
-- **No canal**: digite o comando **com barra `/` na frente**. Ex: `/c oi, tudo bem?`
-- Nem todo comando de PM está disponível no canal — os disponíveis no canal estão marcados abaixo com 🔊.
+- **No PM:** comandos são digitados sem `/`.
+- **No canal:** comandos são digitados com `/` na frente.
+- Mensagens livres no canal também podem conversar com a IA quando o modo normal estiver ativo.
 
-## Chat livre com IA (sem precisar de comando)
+## Modo de sono
 
-Você não precisa digitar `c` toda vez. Basta mandar uma mensagem qualquer (sem `/` na frente, no canal) que o bot responde usando IA — como se fosse uma conversa normal.
-
-> ⚠️ Se o bot estiver **dormindo** (veja abaixo), ele ignora tudo até alguém mencionar o apelido dele na mensagem.
-
-## Sistema de sono
-
-Se ninguém interagir com o bot por **20 minutos**, ele "dorme" (toca um som indicando isso) e passa a **ignorar todas as mensagens**, exceto se você mencionar o apelido dele em qualquer parte do texto — aí ele acorda e responde normalmente. Se ele ficar 10 horas sem ninguém falar com ele, desiste de tentar chamar atenção e fica apenas "acordado e quieto" até alguém interagir.
+Se ninguém interagir com o bot por **20 minutos**, ele entra em modo de sono e passa a ignorar mensagens até ser acordado por uma menção ao apelido.
 
 ## Comandos básicos
 
 | Comando | O que faz |
 |---|---|
-| `h` 🔊 | Mostra a lista de comandos (esta ajuda). |
-| `ping` | Verifica se o bot está respondendo. |
-| `info` | Mostra o status do bot e informações do servidor. |
-| `whoami` | Mostra suas informações de usuário. |
-| `rights` | Mostra as permissões que o bot tem no servidor. |
-| `cn <novo_apelido>` | Muda o apelido do bot. |
-| `cs <novo_status>` | Muda a mensagem de status do bot. |
+| `h` / `/h` | Mostra a ajuda de comandos. |
+| `ping` / `/ping` | Verifica se o bot está respondendo. |
+| `info` / `/info` | Mostra informações do bot e do servidor. |
+| `whoami` / `/whoami` | Mostra suas informações de usuário. |
+| `rights` / `/rights` | Mostra as permissões do bot. |
+| `cn <novo apelido>` / `/cn <novo apelido>` | Muda o apelido do bot. |
+| `cs <novo status>` / `/cs <novo status>` | Muda o status do bot. |
 
-## Inteligência Artificial (Groq)
+## Inteligência Artificial
 
 | Comando | O que faz |
 |---|---|
-| `c <pergunta>` 🔊 | Pergunta algo pra IA. No canal, responde só no canal; no PM, só no PM (nunca os dois juntos). |
-| `ch` 🔊 | Inicia um chat novo, **apagando** o histórico da conversa anterior. |
-| `cl` 🔊 | Limpa o histórico do chat atual, sem sair da conversa. |
-| `n` 🔊 | Encerra o chat atual. |
+| `c <pergunta>` / `/c <pergunta>` | Envia uma pergunta para a IA. |
+| `ch` / `/ch` | Inicia um novo chat, limpando o histórico. |
+| `cl` / `/cl` | Limpa o histórico do chat atual. |
+| `n` / `/n` | Encerra o chat atual. |
 
 ## YouTube
 
 | Comando | O que faz |
 |---|---|
-| `yt <busca ou link>` 🔊 | Busca no YouTube (ou usa o link direto) e **toca o áudio no canal**. |
-| `ytstop` 🔊 | Para a reprodução atual. |
+| `yt <busca ou link>` / `/yt <busca ou link>` | Pesquisa ou abre um vídeo e inicia a reprodução. |
+| `ytstop` / `/ytstop` | Para a reprodução e limpa a fila. |
+| `ytpause` / `/ytpause` | Pausa. |
+| `ytresume` / `/ytresume` | Continua. |
+| `ytforward [segundos]` / `/ytforward [segundos]` | Avança o tempo; padrão 10 segundos. |
+| `ytback [segundos]` / `/ytback [segundos]` | Retrocede o tempo; padrão 10 segundos. |
+| `ytnext` / `/ytnext` | Próximo vídeo. |
+| `ytprev` / `/ytprev` | Vídeo anterior. |
+| `ytplaylist <link>` / `/ytplaylist <link>` | Carrega uma playlist na fila. |
+| `ytclear` / `/ytclear` | Limpa a fila. |
+| `dl` / `/dl` | Baixa **o vídeo que está tocando atualmente**; não recebe URL ou busca. |
 
-> O bot ignora comandos de *outros* bots que dividem o canal com ele (tipo `/p`, `/pause`, `/stop` de um bot de música), então não tem conflito entre os dois.
-
+O `/dl` baixa o áudio com `yt-dlp.exe`, converte para MP3 **320 kbps / 48 kHz** com `ffmpeg.exe` e envia o arquivo pelo TeamTalk.
 
 ## Enquetes
 
 | Comando | O que faz |
 |---|---|
-| `poll "Pergunta" "Opção A" "Opção B" ...` 🔊 | Cria uma nova enquete. |
-| `vote <id_da_enquete> <número_da_opção>` 🔊 | Vota em uma enquete ativa. |
-| `results <id_da_enquete>` 🔊 | Mostra os resultados de uma enquete. |
+| `poll "Pergunta" "Opção A" "Opção B" ...` / `/poll ...` | Cria uma enquete. |
+| `vote <id> <número>` / `/vote <id> <número>` | Vota em uma enquete ativa. |
+| `results <id>` / `/results <id>` | Mostra os resultados. |
 
 ## Idioma
 
-O idioma das respostas do bot (incluindo este manual) é o mesmo configurado pelo administrador. Se quiser saber qual é, use `info`.
+O idioma das respostas é definido pelo administrador.
 
 ---
-*Manual gerado para o Ai Bot — Alfa pública v0.2.0.0
+*Manual do usuário — AI TeamTalk Bot v0.3.0.1*
+
+## Voz
+
+O bot pode escutar o áudio de usuários no canal, detectar frases de chamada em idiomas suportados, transcrever a fala com Whisper via Groq e responder usando Edge TTS. A sessão de voz é encerrada após 3 segundos sem nova fala. `appear.wav` indica a ativação e `disappear.wav` indica a desativação.

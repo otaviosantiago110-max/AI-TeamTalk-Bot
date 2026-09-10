@@ -1,3 +1,10 @@
+## v0.3.0.1 — Voice and YouTube download fixes
+
+- Integrated voice system with TeamTalk audio capture, Groq Whisper transcription, and Edge TTS responses.
+- Multilingual wake phrase activation with a 3-second inactivity session.
+- `appear.wav` and `disappear.wav` are used for activation and deactivation.
+- Files downloaded by `/dl` now use the video title as the MP3 filename, with Windows-invalid filename sanitization.
+
 # Changelog — AI TeamTalk Bot
 
 ## v0.3.0.0 — Major update and version 3 consolidation
