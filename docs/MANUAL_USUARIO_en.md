@@ -1,6 +1,6 @@
 # User Manual — Ai Bot (TeamTalk)
 
-> Bot version: **v0.3.0.0** — version 3 of the bot, with the current systems enabled.
+> Bot version: **v0.3.2** — version 3 of the bot, with the current systems enabled.
 
 This manual covers every command available to **any user** on the server. For admin-only commands, see `MANUAL_ADMIN_en.md`.
 
@@ -72,4 +72,8 @@ O `/dl` baixa o áudio com `yt-dlp.exe`, converte para MP3 **320 kbps / 48 kHz**
 The bot's reply language (including this manual) matches whatever the admin configured. Check with `info` if you're not sure which one is set.
 
 ---
-*Manual generated for Ai Bot — v0.3.0.0.0
+*Manual generated for Ai Bot — v0.3.2.0
+
+## Voice
+
+The voice system was removed in this version to keep the core lighter and more stable.

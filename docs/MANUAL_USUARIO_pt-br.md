@@ -1,6 +1,6 @@
 # Manual do Usuário — AI TeamTalk Bot
 
-> Versão: **v0.3.0.0** — versão 3 do bot, com os sistemas atuais ativados.
+> Versão: **v0.3.2** — versão 3 do bot, com os sistemas atuais ativados.
 
 Este manual é para qualquer pessoa que queira usar o bot no servidor TeamTalk.
 
@@ -66,4 +66,8 @@ O `/dl` baixa o áudio com `yt-dlp.exe`, converte para MP3 **320 kbps / 48 kHz**
 O idioma das respostas é definido pelo administrador.
 
 ---
-*Manual do usuário — AI TeamTalk Bot v0.3.0.0*
+*Manual do usuário — AI TeamTalk Bot v0.3.2*
+
+## Voz
+
+O sistema de voz foi removido nesta versão para manter o núcleo mais leve e estável.

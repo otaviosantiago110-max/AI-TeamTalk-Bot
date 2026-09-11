@@ -1,6 +1,6 @@
 # Manual do Usuário — AI TeamTalk Bot
 
-> Versão: **v0.3.0.1** — versão 3 do bot, com os sistemas atuais ativados.
+> Versão: **v0.3.2** — versão 3 do bot, com os sistemas atuais ativados.
 
 Este manual é para qualquer pessoa que queira usar o bot no servidor TeamTalk.
 

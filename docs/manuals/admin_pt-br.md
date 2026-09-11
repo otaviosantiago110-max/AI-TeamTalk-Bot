@@ -1,6 +1,6 @@
 # Manual do Administrador — AI TeamTalk Bot
 
-> Versão: **v0.3.0.1** — versão 3 do bot.
+> Versão: **v0.3.2** — versão 3 do bot.
 
 Este manual cobre os comandos exclusivos de administrador. Administradores também podem usar os comandos do manual do usuário.
 
@@ -96,4 +96,4 @@ O painel web usa `host` e `port` na seção `[WebUI]` do `config.ini`.
 Consulte `docs/SOUNDS.md` para a tabela completa.
 
 ---
-*Manual do administrador — AI TeamTalk Bot v0.3.0.1*
+*Manual do administrador — AI TeamTalk Bot v0.3.2*

@@ -1,3 +1,15 @@
+### v0.3.2
+
+## v0.3.2 — Atualização do sistema
+
+- Novo formato de versão de três componentes: `0.3.2`, `0.3.3`, etc.
+- Auto-atualizador usa o pacote `AI-TeamTalk-Bot-v{TAG}.zip`.
+- Compatibilidade mantida com versões legadas de quatro componentes na comparação de versões.
+- Correção do sistema de voz quando o bot é iniciado pelo WebUI em modo código-fonte.
+- Processamento correto dos eventos `CLIENTEVENT_USER_AUDIOBLOCK`.
+- Versão do cliente exibida nas informações do servidor como `AI Bot v0.3.2 5.15.0`.
+- Nome do pacote de atualização ajustado para `AI-TeamTalk-Bot-v0.3.2.zip`.
+
 ## v0.3.0.1 — Sistema de voz e correções do YouTube
 
 - Sistema de voz integrado com captura de áudio do TeamTalk, transcrição via Whisper no Groq e respostas via Edge TTS.

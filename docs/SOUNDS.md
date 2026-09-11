@@ -15,8 +15,8 @@ construído. Nem todos os sons têm lógica implementada ainda — a coluna
 | `appear.wav` (era `online.wav`) | Canal | Ativado por voz: alguém disse a palavra de ativação (ex: "Abby, ...") — modo de escuta de voz ligou | ⏳ Depende do sistema de reconhecimento de voz |
 | `disappear.wav` (era `offline.wav`) | Canal | 3 segundos de silêncio no canal após ativação por voz — modo de escuta desligou | ⏳ Depende do sistema de reconhecimento de voz |
 | `toggle.wav` | Canal | Alternância de modo/funcionalidade (ex: ligar/desligar o futuro "modo tradutor", que traduzirá mensagens automaticamente entre idiomas) | ✅ Implementado |
-| `update_found.wav` | Canal + mensagem de canal + mensagem global (broadcast) | Auto-atualizador encontrou uma versão nova disponível no GitHub | Ativo a partir da v0.3.0.0 |
-| `updating.wav` | Canal, em loop contínuo enquanto dura | Auto-atualizador começou a baixar uma atualização (acompanhado de mensagem de canal/global avisando) | ✅ Implementado na v0.3.0.0 |
+| `update_found.wav` | Canal + mensagem de canal + mensagem global (broadcast) | Auto-atualizador encontrou uma versão nova disponível no GitHub | Ativo a partir da v0.3.2 |
+| `updating.wav` | Canal, em loop contínuo enquanto dura | Auto-atualizador começou a baixar uma atualização (acompanhado de mensagem de canal/global avisando) | ✅ Implementado na v0.3.2 |
 | `startup.wav` (era `welcome.wav`) | **No navegador** (Web UI), não no canal | Alguém entra/loga no painel de controle web do bot | ✅ Implementado |
 
 ## Notas de design
