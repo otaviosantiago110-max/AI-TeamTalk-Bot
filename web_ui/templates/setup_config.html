@@ -14,7 +14,7 @@
         <form id="configForm" action="/setup_config" method="POST">
             {% for section, options in default_config.items() %}
             <h2>{{ t("web.config.section." ~ section) }}</h2>
-            {% for key, value in options.items() if key != 'setup_complete' %}
+            {% for key, value in options.items() if key != 'setup_complete' and not (section == 'Bot' and key == 'ai_gender') %}
             <div class="form-group">
                 <label for="{{ section }}_{{ key }}">{{ t("web.config.field." ~ section ~ "." ~ key) }}:</label>
                 {% if key == 'language' %}

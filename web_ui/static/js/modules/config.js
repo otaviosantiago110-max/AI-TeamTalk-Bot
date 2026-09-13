@@ -49,6 +49,7 @@ export function renderConfigForm(config) {
 
         const form = accordionItem.querySelector(`#form-${section}`);
         for (const key in config[section]) {
+            if (section === 'Bot' && key === 'ai_gender') continue;
             const value = config[section][key];
             const inputId = `${section}-${key}`;
             let inputHtml = '';
@@ -93,6 +94,7 @@ export function getConfigFromForm() {
     const newConfig = JSON.parse(JSON.stringify(currentConfig)); // Deep copy
     for (const section in newConfig) {
         for (const key in newConfig[section]) {
+            if (section === 'Bot' && key === 'ai_gender') continue;
             const inputId = `${section}-${key}`;
             const inputElement = document.getElementById(inputId);
             if (inputElement) {

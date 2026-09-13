@@ -406,5 +406,22 @@
   "yt.upload_failed": "Falha ao enviar o MP3 para o canal.",
   "help.ytcontrols": "- ytpause/ytresume/ytforward/ytback/ytnext/ytprev: Controla pausa, avanço, retrocesso e fila.\n- ytplaylist <URL>: Carrega uma playlist.\n- ytclear: Limpa a fila.\n- /dl: Baixa o vídeo atual do YouTube em MP3 320 kbps e envia ao canal.",
   "updater.checking": "Verificando atualizações.",
-  "updater.up_to_date": "Seu cliente está atualizado."
+  "updater.up_to_date": "Seu cliente está atualizado.",
+  "web.status.server.client_id": "ID do cliente",
+  "web.status.server.application_version_label": "Versão da aplicação",
+  "web.status.server.teamtalk_version": "Versão do TeamTalk",
+  "web.config.field.Bot.context_history_max_messages": "Máximo de mensagens no histórico de contexto",
+  "help.admin.set_ai_gender": "- set_gender <neutro|masculino|feminino>: Define o gênero de apresentação da IA.",
+  "help.admin.ai_gender": "- gender: Mostra o gênero de apresentação atual da IA.",
+  "config.usage_ai_gender": "Uso: set_gender <neutro|masculino|feminino>",
+  "config.invalid_ai_gender": "Gênero de IA inválido. Use neutro, masculino ou feminino.",
+  "config.ai_gender_set": "Gênero da IA definido como '{gender}'.",
+  "config.ai_gender_current": "Gênero atual da IA: {gender}.",
+  "config.ai_gender.neutral": "neutro",
+  "config.ai_gender.male": "masculino",
+  "config.ai_gender.female": "feminino",
+  "web.config.field.Bot.ai_gender": "Gênero da IA",
+  "welcome.channel": "Bem-vindo, {nickname}!",
+  "help.admin.wsnd": "- wsnd: Liga/desliga o som de boas-vindas de novo usuário.",
+  "welcome_sound.toggled": "Som de boas-vindas: {state}."
 }

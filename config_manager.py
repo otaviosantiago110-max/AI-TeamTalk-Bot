@@ -19,7 +19,7 @@ DEFAULT_CONFIG = {
         'channel_password': ''
     },
     'Bot': {
-        'client_name': 'AI bot',
+        'client_name': 'AI Bot',
         'admin_usernames': '',
         'groq_api_key': '',
         'groq_model_name': 'openai/gpt-oss-120b',
@@ -33,6 +33,8 @@ DEFAULT_CONFIG = {
         'context_history_enabled': 'True',
         'debug_logging_enabled': 'False',
         'ai_system_instructions': '',
+        'ai_gender': 'neutral',
+        'welcome_sound_enabled': 'True',
         'scheduled_tasks': '[]'
     },
     'WebUI': {
@@ -135,6 +137,8 @@ def save_config(structured_config_data):
         'context_history_enabled': 'true' if str(bot_data.get('context_history_enabled', DEFAULT_CONFIG['Bot']['context_history_enabled'])).lower() == 'true' else 'false',
         'debug_logging_enabled': 'true' if str(bot_data.get('debug_logging_enabled', DEFAULT_CONFIG['Bot']['debug_logging_enabled'])).lower() == 'true' else 'false',
         'ai_system_instructions': str(bot_data.get('ai_system_instructions', DEFAULT_CONFIG['Bot']['ai_system_instructions'])),
+        'ai_gender': str(bot_data.get('ai_gender', DEFAULT_CONFIG['Bot']['ai_gender'])),
+        'welcome_sound_enabled': 'true' if str(bot_data.get('welcome_sound_enabled', DEFAULT_CONFIG['Bot']['welcome_sound_enabled'])).lower() == 'true' else 'false',
         'scheduled_tasks': str(bot_data.get('scheduled_tasks', DEFAULT_CONFIG['Bot']['scheduled_tasks']))
     }
     

@@ -4,7 +4,7 @@ from logger_config import bot_logger
 from .core import get_bot_controller, _current_web_language
 from config_manager import is_setup_complete
 import i18n
-from version import VERSION
+from version import VERSION, VERSION_LABEL, CLIENT_NAME, CLIENT_ID, TEAMTALK_VERSION
 
 def _t(key, **kwargs):
     return i18n.t(key, lang=_current_web_language(), **kwargs)
@@ -77,8 +77,11 @@ def get_status():
                         "target_channel_path": _sanitize_for_json(bot_controller.bot_instance.target_channel_path),
                         "my_user_id": bot_controller.bot_instance._my_user_id,
                         "my_rights": _sanitize_for_json(bot_controller.bot_instance.my_rights),
-                        "client_name": f"{_sanitize_for_json(bot_controller.bot_instance.client_name)} v{VERSION} 5.15.0",
+                        "client_name": CLIENT_NAME,
+                        "client_id": CLIENT_ID,
                         "application_version": VERSION,
+                        "application_version_label": VERSION_LABEL,
+                        "teamtalk_version": TEAMTALK_VERSION,
                         "status_message": _sanitize_for_json(bot_controller.bot_instance.status_message),
                         "logged_in": bot_controller.bot_instance._logged_in,
                         "in_channel": bot_controller.bot_instance._in_channel,

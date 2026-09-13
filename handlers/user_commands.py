@@ -33,7 +33,7 @@ def handle_help(bot, msg_from_id, **kwargs):
             "help.admin.kick", "help.admin.ban", "help.admin.unban", "help.admin.admins",
             "help.admin.instruct", "help.admin.setwelcomeinstruction", "help.admin.jc",
             "help.admin.addtask", "help.admin.deltask", "help.admin.listtasks",
-            "help.admin.tg_translator", "help.admin.set_translate_lang", "help.admin.set_language",
+            "help.admin.tg_translator", "help.admin.set_translate_lang", "help.admin.set_language", "help.admin.set_ai_gender", "help.admin.ai_gender", "help.admin.wsnd",
         ]
         for key in admin_keys:
             help_lines.append(bot.t(key))
@@ -188,6 +188,10 @@ ADMIN_COMMANDS = {
     "unblock": bot_control.handle_block_command,
     "rs": bot_control.handle_restart,
     "set_language": config_management.handle_set_language,
+    "set_gender": config_management.handle_set_ai_gender,
+    "setgender": config_management.handle_set_ai_gender,
+    "gender": config_management.handle_get_ai_gender,
+    "wsnd": config_management.handle_toggle_welcome_sound,
     "q": bot_control.handle_quit,
     # Admin - Config Management
     "gapi": config_management.handle_set_gapi,

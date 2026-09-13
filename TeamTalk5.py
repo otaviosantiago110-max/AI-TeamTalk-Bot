@@ -1,3 +1,23 @@
+# Copyright (c) 2005-2018, BearWare.dk
+#
+# Contact Information:
+#
+# Bjoern D. Rasmussen
+# Kirketoften 5
+# DK-8260 Viby J
+# Denmark
+# Email: contact@bearware.dk
+# Phone: +45 20 20 54 59
+# Web: http://www.bearware.dk
+#
+# This source code is part of the TeamTalk SDK owned by
+# BearWare.dk. Use of this file, or its compiled unit, requires a
+# TeamTalk SDK License Key issued by BearWare.dk.
+#
+# The TeamTalk SDK License Agreement along with its Terms and
+# Conditions are outlined in the file License.txt included with the
+# TeamTalk SDK distribution.
+
 import sys
 import os
 import ctypes
@@ -5,35 +25,15 @@ from ctypes import cdll, c_int, c_char, c_wchar, c_wchar_p, c_char_p, \
                    c_longlong, c_uint, c_float, c_void_p, c_uint16, \
                    Structure, Union, POINTER, byref
 
-def _base_dir():
-    """Directory to resolve bundled resources (like TeamTalk_DLL) from.
-
-    When running from source, this is just this file's directory. When
-    frozen by PyInstaller, __file__ points inside the internal bundle
-    (e.g. '_internal/' in onedir builds), which is NOT where --add-data
-    resources land relative to the executable — so we use sys._MEIPASS
-    instead, which PyInstaller sets correctly for both --onefile and
-    --onedir builds.
-    """
-    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
-        return sys._MEIPASS
-    return os.path.dirname(os.path.abspath(__file__))
-
 if sys.platform == "win32":
     if (sys.version_info.major == 3 and sys.version_info.minor >= 8):
+        os.add_dll_directory(os.getcwd())
         # Path relative to TeamTalk SDK's DLL location
-        os.add_dll_directory(os.path.join(_base_dir(), "TeamTalk_DLL"))
+        os.add_dll_directory(os.path.join(os.path.dirname(os.path.abspath(__file__)), "TeamTalk_DLL"))
     dll = cdll.TeamTalk5
     TTCHAR = c_wchar
     TTCHAR_P = c_wchar_p
     from ctypes.wintypes import BOOL
-    LOADED_TT_LIB = "TeamTalk5.dll"
-elif sys.platform.startswith("linux"):
-    dll = cdll.LoadLibrary(os.path.join(_base_dir(), "TeamTalk_DLL", "libTeamTalk5.so"))
-    TTCHAR = c_char
-    TTCHAR_P = c_char_p
-    BOOL = c_int
-    LOADED_TT_LIB = "libTeamTalk5.so"
 elif sys.platform == "darwin":
     # Darwin is not supported. Seems SIP is preventing this from
     # working. Setting DYLD_LIBRARY_PATH doesn't help.
@@ -42,7 +42,6 @@ elif sys.platform == "darwin":
     TTCHAR_P = c_char_p
     BOOL = c_int
 else:
-    # Fallback for other Unix-like systems
     dll = cdll.LoadLibrary("libTeamTalk5.so")
     TTCHAR = c_char
     TTCHAR_P = c_char_p
@@ -51,6 +50,7 @@ INT32 = c_int
 INT64 = c_longlong
 UINT32 = c_uint
 FLOAT = c_float
+LOADED_TT_LIB = "5.19.0.5170"
 TT_STRLEN = 512
 TT_VIDEOFORMATS_MAX = 1024
 TT_TRANSMITUSERS_MAX = 128
@@ -364,15 +364,14 @@ class WebRTCAudioPreprocessor(Structure):
         ("echocanceller_bEnable", BOOL),
         ("noisesuppression_bEnable", BOOL),
         ("noisesuppression_nLevel", INT32),
-        ("voicedetection_bEnable", BOOL),
         ("gaincontroller2_bEnable", BOOL),
         ("gaincontroller2_fixeddigital_fGainDB", FLOAT),
         ("gaincontroller2_adaptivedigital_bEnable", BOOL),
-        ("gaincontroller2_adaptivedigital_fInitialSaturationMarginDB", FLOAT),
-        ("gaincontroller2_adaptivedigital_fExtraSaturationMarginDB", FLOAT),
+        ("gaincontroller2_adaptivedigital_fHeadRoomDB", FLOAT),
+        ("gaincontroller2_adaptivedigital_fMaxGainDB", FLOAT),
+        ("gaincontroller2_adaptivedigital_fInitialGainDB", FLOAT),
         ("gaincontroller2_adaptivedigital_fMaxGainChangeDBPerSecond", FLOAT),
-        ("gaincontroller2_adaptivedigital_fMaxOutputNoiseLevelDBFS", FLOAT),
-        ("levelestimation_bEnable", BOOL)
+        ("gaincontroller2_adaptivedigital_fMaxOutputNoiseLevelDBFS", FLOAT)
     ]
     def __init__(self):
         assert(DBG_SIZEOF(TTType.WEBRTCAUDIOPREPROCESSOR) == ctypes.sizeof(WebRTCAudioPreprocessor))
@@ -381,7 +380,8 @@ class AudioPreprocessorType(INT32):
     NO_AUDIOPREPROCESSOR = 0
     SPEEXDSP_AUDIOPREPROCESSOR = 1
     TEAMTALK_AUDIOPREPROCESSOR = 2
-    WEBRTC_AUDIOPREPROCESSOR = 3
+    WEBRTC_AUDIOPREPROCESSOR_OBSOLETE_R4332 = 3
+    WEBRTC_AUDIOPREPROCESSOR = 4
 
 class AudioPreprocessorUnion(Union):
     _fields_ = [
@@ -643,6 +643,7 @@ class UserAccount(Structure):
     ("nAudioCodecBpsLimit", INT32),
     ("abusePrevent", AbusePrevention),
     ("szLastModified", TTCHAR*TT_STRLEN),
+    ("szLastLoginTime", TTCHAR*TT_STRLEN),
     ]
     def __init__(self):
         assert(DBG_SIZEOF(TTType.USERACCOUNT) == ctypes.sizeof(UserAccount))
@@ -1154,12 +1155,11 @@ _CloseVideoCaptureDevice = function_factory(dll.TT_CloseVideoCaptureDevice, [BOO
 _StartStreamingMediaFileToChannel = function_factory(dll.TT_StartStreamingMediaFileToChannel, [BOOL, [_TTInstance, TTCHAR_P, POINTER(VideoCodec)]])
 _StartStreamingMediaFileToChannelEx = function_factory(dll.TT_StartStreamingMediaFileToChannelEx, [BOOL, [_TTInstance, TTCHAR_P, POINTER(MediaFilePlayback), POINTER(VideoCodec)]])
 _UpdateStreamingMediaFileToChannel = function_factory(dll.TT_UpdateStreamingMediaFileToChannel, [BOOL, [_TTInstance, POINTER(MediaFilePlayback), POINTER(VideoCodec)]])
-_UpdateStreamingMediaFileToChannel = function_factory(dll.TT_UpdateStreamingMediaFileToChannel, [BOOL, [_TTInstance, POINTER(MediaFilePlayback), POINTER(VideoCodec)]])
 _StopStreamingMediaFileToChannel = function_factory(dll.TT_StopStreamingMediaFileToChannel, [BOOL, [_TTInstance]])
 _InitLocalPlayback = function_factory(dll.TT_InitLocalPlayback, [INT32, [_TTInstance, TTCHAR_P, POINTER(MediaFilePlayback)]])
 _UpdateLocalPlayback = function_factory(dll.TT_UpdateLocalPlayback, [BOOL, [_TTInstance, INT32, POINTER(MediaFilePlayback)]])
 _StopLocalPlayback = function_factory(dll.TT_StopLocalPlayback, [BOOL, [_TTInstance, INT32]])
-_GetMediaFileInfo = function_factory(dll.TT_GetMediaFileInfo, [BOOL, [_TTInstance, TTCHAR_P, POINTER(MediaFileInfo)]])
+_GetMediaFileInfo = function_factory(dll.TT_GetMediaFileInfo, [BOOL, [TTCHAR_P, POINTER(MediaFileInfo)]])
 _SetEncryptionContext = function_factory(dll.TT_SetEncryptionContext, [BOOL, [_TTInstance, POINTER(EncryptionContext)]])
 _Connect = function_factory(dll.TT_Connect, [BOOL, [_TTInstance, TTCHAR_P, INT32, INT32, INT32, INT32, BOOL]])
 _ConnectSysID = function_factory(dll.TT_ConnectSysID, [BOOL, [_TTInstance, TTCHAR_P, INT32, INT32, INT32, INT32, BOOL, TTCHAR_P]])
@@ -1262,20 +1262,61 @@ def buildTextMessage(content: str, nMsgType: TextMsgType,
                      szFromUsername: str = "") -> [TextMessage]:
     result = []
     converted_content = ttstr(content)
-    while len(converted_content) > 0:
+
+    if len(converted_content) < TT_STRLEN:
         textmsg = TextMessage()
         textmsg.nMsgType = nMsgType
         textmsg.nFromUserID = nFromUserID
         textmsg.szFromUsername = ttstr(szFromUsername)
         textmsg.nToUserID = nToUserID
         textmsg.nChannelID = nChannelID
-        textmsg.szMessage = converted_content[0:TT_STRLEN-1]
-        converted_content = converted_content[TT_STRLEN-1:]
-        textmsg.bMore = len(converted_content) > 0
+        textmsg.szMessage = converted_content
+        textmsg.bMore = False
         result.append(textmsg)
+        return result
+
+    curlen = len(content) // 2
+    while len(ttstr(content[0:curlen])) > TT_STRLEN - 1:
+        curlen = curlen // 2
+
+    half = TT_STRLEN // 2
+    while half > 0:
+        if len(ttstr(content[0:curlen+half])) < TT_STRLEN:
+            curlen = curlen + half
+        half = half // 2
+
+    textmsg = TextMessage()
+    textmsg.nMsgType = nMsgType
+    textmsg.nFromUserID = nFromUserID
+    textmsg.szFromUsername = ttstr(szFromUsername)
+    textmsg.nToUserID = nToUserID
+    textmsg.nChannelID = nChannelID
+    textmsg.szMessage = ttstr(content[0:curlen])
+    textmsg.bMore = True
+    result.append(textmsg)
+
+    result.extend(buildTextMessage(content[curlen:], nMsgType=nMsgType,
+                                   nToUserID=nToUserID, nChannelID=nChannelID,
+                                   nFromUserID=nFromUserID,
+                                   szFromUsername=szFromUsername))
 
     return result
 
+def rebuildTextMessage(msgs: [TextMessage]) -> str:
+    content = ""
+    txtmsg = TextMessage() if len(msgs) == 0 else msgs[0]
+    for m in msgs:
+        content += ttstr(m.szMessage)
+        if not m.bMore:
+            break
+        else:
+            assert(m.nMsgType == txtmsg.nMsgType)
+            assert(m.nFromUserID == txtmsg.nFromUserID)
+            assert(m.szFromUsername == txtmsg.szFromUsername)
+            assert(m.nToUserID == txtmsg.nToUserID)
+            assert(m.nChannelID == txtmsg.nChannelID)
+
+    return content
 
 class TeamTalk(object):
 
@@ -1349,8 +1390,6 @@ class TeamTalk(object):
             self.onUserAudioBlock(msg.nSource, msg.nStreamType)
         if event == ClientEvent.CLIENTEVENT_STREAM_MEDIAFILE:
             self.onStreamMediaFile(msg.mediafileinfo)
-        if event == ClientEvent.CLIENTEVENT_FILETRANSFER:
-            self.onFileTransfer(msg.filetransfer)
         if event == ClientEvent.CLIENTEVENT_CMD_USERACCOUNT:
             self.onUserAccount(msg.useraccount)
         if event == ClientEvent.CLIENTEVENT_CMD_BANNEDUSER:
@@ -1611,17 +1650,8 @@ class TeamTalk(object):
     def startStreamingMediaFileToChannel(self, szMediaFilePath, lpVideoCodec: VideoCodec) -> bool:
         return _StartStreamingMediaFileToChannel(self._tt, szMediaFilePath, lpVideoCodec)
 
-    def startStreamingMediaFileToChannelEx(self, szMediaFilePath, lpMediaFilePlayback: MediaFilePlayback, lpVideoCodec: VideoCodec) -> bool:
-        return _StartStreamingMediaFileToChannelEx(self._tt, szMediaFilePath, lpMediaFilePlayback, lpVideoCodec)
-
-    def updateStreamingMediaFileToChannel(self, lpMediaFilePlayback: MediaFilePlayback, lpVideoCodec: VideoCodec) -> bool:
-        return _UpdateStreamingMediaFileToChannel(self._tt, lpMediaFilePlayback, lpVideoCodec)
-
     def stopStreamingMediaFileToChannel(self) -> bool:
         return _StopStreamingMediaFileToChannel(self._tt)
-
-    def getMediaFileInfo(self, szMediaFilePath, lpMediaFileInfo: MediaFileInfo) -> bool:
-        return _GetMediaFileInfo(self._tt, szMediaFilePath, lpMediaFileInfo)
 
     def initLocalPlayback(self, szMediaFilePath, lpMediaFilePlayback: MediaFilePlayback) -> int:
         return _InitLocalPlayback(self._tt, szMediaFilePath, lpMediaFilePlayback)
@@ -1647,6 +1677,10 @@ class TeamTalk(object):
     def releaseUserAudioBlock(self, lpAudioBlock: POINTER(AudioBlock)) -> bool:
         return _ReleaseUserAudioBlock(self._tt, lpAudioBlock)
 
+    def getMediaFileInfo(szMediaFilePath) -> MediaFileInfo:
+        mfi = MediaFileInfo()
+        _GetMediaFileInfo(szMediaFilePath, mfi)
+        return mfi
 
     # event handling
 

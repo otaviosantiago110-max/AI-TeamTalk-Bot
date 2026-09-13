@@ -14,7 +14,7 @@ GEMINI_SAFETY_SETTINGS = []
 class GroqService:
     """Drop-in replacement for GeminiService, backed by the Groq API."""
 
-    def __init__(self, api_key, context_history_enabled=True, model_name: str = 'openai/gpt-oss-120b', system_instructions: str = '', welcome_instructions: str = ''):
+    def __init__(self, api_key, context_history_enabled=True, model_name: str = 'openai/gpt-oss-120b', system_instructions: str = '', welcome_instructions: str = '', gender: str = 'neutral'):
         self.api_key = api_key
         self._model_name = model_name
         self.client = None
@@ -22,6 +22,7 @@ class GroqService:
         self.context_history_enabled = context_history_enabled
         self._system_instructions = system_instructions
         self._welcome_instructions = welcome_instructions
+        self._gender = gender if gender in {'neutral', 'male', 'female'} else 'neutral'
         self._semaphore = threading.Semaphore(5)  # Limit to 5 concurrent API calls
         self.init_model()
 
@@ -44,6 +45,18 @@ class GroqService:
             logging.error(f"Failed to initialize Groq client or verify API key: {e}. Main features will be disabled.")
             self.client = None
             self._enabled = False
+
+    def set_gender(self, gender: str):
+        self._gender = gender if gender in {'neutral', 'male', 'female'} else 'neutral'
+        logging.info(f'AI gender set to {self._gender}.')
+
+    def _gender_instruction(self):
+        instructions = {
+            'neutral': 'You are an AI bot, not a human person. Use gender-neutral wording whenever possible and do not present yourself as male or female.',
+            'male': 'You are an AI bot with a masculine gender presentation. When Portuguese or another language requires gendered wording for self-reference, use masculine forms.',
+            'female': 'You are an AI bot with a feminine gender presentation. When Portuguese or another language requires gendered wording for self-reference, use feminine forms.',
+        }
+        return instructions[self._gender]
 
     def set_system_instructions(self, instructions: str):
         self._system_instructions = instructions
@@ -104,6 +117,7 @@ class GroqService:
 
         try:
             messages = []
+            messages.append({"role": "system", "content": self._gender_instruction()})
             if self._system_instructions:
                 messages.append({"role": "system", "content": self._system_instructions})
 
@@ -127,6 +141,7 @@ class GroqService:
         try:
             messages = []
             system_instructions = self._welcome_instructions if model_to_use == "welcome" else self._system_instructions
+            messages.append({"role": "system", "content": self._gender_instruction()})
             if system_instructions:
                 messages.append({"role": "system", "content": system_instructions})
             messages.append({"role": "user", "content": prompt})
@@ -135,8 +150,9 @@ class GroqService:
             logging.error(f"Error during Groq API call: {e}", exc_info=True)
             return "[Bot Error] Error contacting Groq."
 
-    def generate_welcome_message(self, nickname: str) -> str:
+    def generate_welcome_message(self, nickname: str, language: str = "pt_BR") -> str:
         if not self.is_enabled():
             return ""
-        prompt = f"Generate a short, friendly welcome message for a new user named {nickname} joining a chat. Keep it concise and welcoming."
+        language_name = "Portuguese (Brazil)" if language == "pt_BR" else "English"
+        prompt = f"Generate a short, friendly welcome message for a new user named {nickname} joining a chat. Keep it concise and welcoming. Write the message in {language_name}."
         return self.generate_simple_content(prompt, model_to_use="welcome")

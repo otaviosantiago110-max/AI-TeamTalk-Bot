@@ -406,5 +406,22 @@
   "yt.upload_failed": "Failed to upload the MP3 to the channel.",
   "help.ytcontrols": "- ytpause/ytresume/ytforward/ytback/ytnext/ytprev: Control pause, seek and queue.\n- ytplaylist <URL>: Load a playlist.\n- ytclear: Clear the queue.\n- /dl: Download the current YouTube video as a 320 kbps MP3 and upload it to the channel.",
   "updater.checking": "Checking for updates.",
-  "updater.up_to_date": "Your client is up to date."
+  "updater.up_to_date": "Your client is up to date.",
+  "web.status.server.client_id": "Client ID",
+  "web.status.server.application_version_label": "Application version",
+  "web.status.server.teamtalk_version": "TeamTalk version",
+  "web.config.field.Bot.context_history_max_messages": "Maximum Context History Messages",
+  "help.admin.set_ai_gender": "- set_gender <neutral|male|female>: Set the AI bot gender presentation.",
+  "help.admin.ai_gender": "- gender: Show the current AI bot gender presentation.",
+  "config.usage_ai_gender": "Usage: set_gender <neutral|male|female>",
+  "config.invalid_ai_gender": "Invalid AI gender. Use neutral, male, or female.",
+  "config.ai_gender_set": "AI bot gender set to '{gender}'.",
+  "config.ai_gender_current": "Current AI bot gender: {gender}.",
+  "config.ai_gender.neutral": "neutral",
+  "config.ai_gender.male": "male",
+  "config.ai_gender.female": "female",
+  "web.config.field.Bot.ai_gender": "AI Gender",
+  "welcome.channel": "Welcome, {nickname}!",
+  "help.admin.wsnd": "- wsnd: Toggle the new-user welcome sound on or off.",
+  "welcome_sound.toggled": "Welcome sound: {state}."
 }

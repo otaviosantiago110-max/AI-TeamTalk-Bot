@@ -4,13 +4,13 @@ a clear error and plays sounds/critical.wav on the LOCAL machine (the bot
 hasn't connected to any TeamTalk server yet at this point, so this can't be
 played in-channel) before exiting.
 
-Minimum supported version: Python 3.12. Anything below that (3.11 and
+Minimum supported version: Python 3.11. Anything below that (3.10 and
 older) is not supported and will refuse to start.
 """
 import os
 import sys
 
-MIN_PYTHON = (3, 12)
+MIN_PYTHON = (3, 11)
 REQUIRED_MODULES = ["groq", "requests", "flask", "flask_sqlalchemy", "sqlalchemy", "dotenv"]
 
 
@@ -48,7 +48,7 @@ def run_startup_check():
         errors.append(
             f"Versão do Python incompatível: você está usando {sys.version_info.major}.{sys.version_info.minor}, "
             f"mas a versão mínima suportada é {MIN_PYTHON[0]}.{MIN_PYTHON[1]}. "
-            f"Versões 3.11 ou anteriores não são suportadas e podem causar erros e conflitos."
+            f"Versões 3.10 ou anteriores não são suportadas e podem causar erros e conflitos."
         )
 
     missing = []

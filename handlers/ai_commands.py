@@ -1,5 +1,37 @@
 
 import logging
+import re
+
+
+def sanitize_ai_response(text):
+    """Keep normal AI prose screen-reader friendly while preserving code blocks.
+
+    Normal prose keeps letters, numbers, spaces, and sentence punctuation.
+    Mathematical expressions may keep +, - and = when the line looks like a
+    calculation. Fenced code blocks are preserved exactly.
+    """
+    if not text:
+        return text
+
+    parts = re.split(r"(```(?:\n|.)*?```)", text, flags=re.DOTALL)
+    for i in range(0, len(parts), 2):
+        chunk = parts[i]
+        lines = []
+        for line in chunk.splitlines():
+            stripped = line.strip()
+            is_math = bool(
+                re.search(r"\d\s*[+\-]\s*\d", stripped)
+                or re.search(r"\d\s*=\s*[-+]?\d", stripped)
+                or re.search(r"[-+]?\d+(?:[.,]\d+)?\s*=\s*[-+]?\d", stripped)
+            )
+            if is_math:
+                cleaned = re.sub(r"[^\w\s.,!?+\-=]", "", line, flags=re.UNICODE)
+            else:
+                cleaned = re.sub(r"[^\w\s.,!?]", "", line, flags=re.UNICODE)
+            lines.append(cleaned)
+        parts[i] = "\n".join(lines)
+    return "".join(parts).strip()
+
 from TeamTalk5 import TextMsgType
 
 def handle_pm_ai(bot, msg_from_id, args_str, **kwargs):
@@ -19,6 +51,7 @@ def handle_pm_ai(bot, msg_from_id, args_str, **kwargs):
     history = bot.context_history_manager.get_history(str(msg_from_id))
     logging.debug(f"Retrieved history for user_id {msg_from_id}: {history}")
     reply = bot.groq_service.generate_content(prompt, history=history)
+    reply = sanitize_ai_response(reply)
     logging.debug(f"Groq reply for user_id {msg_from_id}: {reply}")
     bot._send_pm(msg_from_id, reply)
 
@@ -41,6 +74,7 @@ def handle_channel_ai(bot, msg_from_id, sender_nick, channel_id, args_str, **kwa
     history = bot.context_history_manager.get_history(user_channel_context_key)
     logging.debug(f"Retrieved history for user_channel_context_key {user_channel_context_key}: {history}")
     reply = bot.groq_service.generate_content(prompt, history=history)
+    reply = sanitize_ai_response(reply)
     logging.debug(f"Groq reply for user_channel_context_key {user_channel_context_key}: {reply}")
     # Add bot's reply to user's specific channel context history
     bot.context_history_manager.add_message(user_channel_context_key, reply, bot.nickname, is_bot=True)

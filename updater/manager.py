@@ -20,6 +20,8 @@ class UpdateManager:
         self._pending_release = None
         self._download_path = None
         self._next_check_time = time.time()
+        self._timer_stop = threading.Event()
+        self._timer_thread = None
 
     @property
     def pending_release(self):
@@ -31,11 +33,37 @@ class UpdateManager:
         with self._lock:
             return self._download_in_progress
 
-    def tick(self):
-        if time.time() < self._next_check_time:
-            return
-        self._next_check_time = time.time() + CHECK_INTERVAL_SECONDS
+    def start(self):
+        with self._lock:
+            if self._timer_thread and self._timer_thread.is_alive():
+                return
+            self._timer_stop.clear()
+            self._next_check_time = time.time() + CHECK_INTERVAL_SECONDS
+
         self.check_async()
+        self._timer_thread = threading.Thread(
+            target=self._timer_worker,
+            name="UpdateTimer",
+            daemon=True,
+        )
+        self._timer_thread.start()
+
+    def stop(self):
+        self._timer_stop.set()
+        thread = self._timer_thread
+        if thread and thread.is_alive() and thread is not threading.current_thread():
+            thread.join(timeout=1.0)
+        self._timer_thread = None
+
+    def _timer_worker(self):
+        while not self._timer_stop.wait(CHECK_INTERVAL_SECONDS):
+            self.check_async()
+
+    def tick(self):
+        # Kept for compatibility with the bot event loop. Periodic checks are
+        # driven by the dedicated timer so source and frozen builds behave the
+        # same even when the event loop is busy.
+        return
 
     def check_async(self):
         with self._lock:
@@ -107,7 +135,7 @@ class UpdateManager:
     def _download_worker(self, release):
         try:
             path = download_release(release, self._progress)
-            plan = prepare_install(path) if getattr(self.bot, "_is_frozen", False) else None
+            plan = prepare_install(path)
             with self._lock:
                 self._download_path = path
             self.bot._pending_main_thread_actions.put(lambda bot: self._download_completed(bot, release, plan))
@@ -127,12 +155,8 @@ class UpdateManager:
         bot._send_system_channel_message(bot._target_channel_id, bot.t("updater.download_complete", version=release.tag))
         bot._log_to_gui(f"Update package downloaded and validated: {release.tag}")
         try:
-            if plan is None:
-                bot._log_to_gui(f"Update package downloaded in source mode: {release.tag}")
-                return
             with self._lock:
                 path = self._download_path
-            plan = prepare_install(path)
             launch_installer(plan)
             bot._log_to_gui(f"Update installation prepared: {release.tag}")
             bot._send_system_broadcast_message(bot.t("updater.install_started", version=release.tag))

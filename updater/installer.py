@@ -20,10 +20,18 @@ def validate_zip(zip_path):
     with zipfile.ZipFile(zip_path, "r") as archive:
         if archive.testzip() is not None:
             raise ValueError("The update ZIP is corrupted.")
-        names = [name.replace("\\", "/") for name in archive.namelist()]
+        names = [name.replace("\\", "/") for name in archive.namelist() if not name.endswith("/")]
         if not names:
             raise ValueError("The update ZIP is empty.")
-        if not any(name.lower().endswith(".spec") for name in names):
+        has_executable = any(
+            os.path.basename(name).lower().endswith(".exe")
+            and os.path.basename(name).lower().startswith("ai-teamtalk-bot")
+            for name in names
+        )
+        has_source = any(os.path.basename(name).lower() == "web_ui.py" for name in names) and any(
+            os.path.basename(name).lower() == "version.py" for name in names
+        )
+        if not has_executable and not has_source:
             raise ValueError("The update ZIP does not look like an AI-TeamTalk-Bot package.")
 
 
@@ -58,12 +66,29 @@ def find_entrypoint(root):
     return candidates[0]
 
 
+def find_source_root(root):
+    candidates = []
+    for current_root, _, files in os.walk(root):
+        lowered = {filename.lower() for filename in files}
+        if "web_ui.py" in lowered and "version.py" in lowered:
+            candidates.append(current_root)
+    if len(candidates) != 1:
+        raise ValueError(
+            f"Expected exactly one AI-TeamTalk-Bot source root in the update package, found {len(candidates)}."
+        )
+    return candidates[0]
+
+
 def _package_root(extracted_root):
     entrypoint = find_entrypoint(extracted_root)
     package_root = os.path.dirname(entrypoint)
     if os.path.basename(package_root).lower() == "dist":
         package_root = os.path.dirname(package_root)
     return package_root, entrypoint
+
+
+def _source_package_root(extracted_root):
+    return find_source_root(extracted_root)
 
 
 def _write_update_script(script_path, app_dir, stage_dir, backup_dir, current_exe_name, staged_exe_name, pid):
@@ -91,9 +116,7 @@ def _write_update_script(script_path, app_dir, stage_dir, backup_dir, current_ex
         f'if exist "%APP_DIR%\\{staged_exe_name}" if /I not "%STAGED_EXE%"=="%CURRENT_EXE%" ren "%APP_DIR%\\{staged_exe_name}" "%CURRENT_EXE%"',
     ]
     for filename in preserved:
-        lines.extend([
-            f'if exist "%BACKUP_DIR%\\{filename}" move /Y "%BACKUP_DIR%\\{filename}" "%APP_DIR%\\{filename}" >nul',
-        ])
+        lines.append(f'if exist "%BACKUP_DIR%\\{filename}" move /Y "%BACKUP_DIR%\\{filename}" "%APP_DIR%\\{filename}" >nul')
     lines.extend([
         'start "AI-TeamTalk-Bot" /D "%APP_DIR%" "%APP_DIR%\\%CURRENT_EXE%"',
         'rmdir /s /q "%BACKUP_DIR%"',
@@ -110,45 +133,113 @@ def _write_update_script(script_path, app_dir, stage_dir, backup_dir, current_ex
         script.write("\n".join(lines) + "\n")
 
 
+def _write_source_update_script(script_path, app_dir, stage_dir, backup_dir, python_executable, entry_script, pid):
+    preserved = list(PRESERVED_FILES)
+    lines = [
+        "@echo off",
+        "setlocal",
+        f'set "APP_DIR={app_dir}"',
+        f'set "STAGE_DIR={stage_dir}"',
+        f'set "BACKUP_DIR={backup_dir}"',
+        f'set "PYTHON_EXE={python_executable}"',
+        f'set "ENTRY_SCRIPT={entry_script}"',
+        f'set "PID={pid}"',
+        ":wait_for_app",
+        'tasklist /FI "PID eq %PID%" /NH | find "%PID%" >nul',
+        "if not errorlevel 1 (",
+        "    timeout /t 1 /nobreak >nul",
+        "    goto wait_for_app",
+        ")",
+        'if exist "%BACKUP_DIR%" rmdir /s /q "%BACKUP_DIR%"',
+        'move /Y "%APP_DIR%" "%BACKUP_DIR%" >nul',
+        'if errorlevel 1 goto install_failed',
+        'move /Y "%STAGE_DIR%" "%APP_DIR%" >nul',
+        'if errorlevel 1 goto restore_failed',
+    ]
+    for filename in preserved:
+        lines.append(f'if exist "%BACKUP_DIR%\\{filename}" move /Y "%BACKUP_DIR%\\{filename}" "%APP_DIR%\\{filename}" >nul')
+    lines.extend([
+        'start "AI-TeamTalk-Bot" /D "%APP_DIR%" "%PYTHON_EXE%" "%APP_DIR%\\%ENTRY_SCRIPT%"',
+        'rmdir /s /q "%BACKUP_DIR%"',
+        'del "%~f0"',
+        'exit /b 0',
+        ":restore_failed",
+        'rmdir /s /q "%APP_DIR%"',
+        'move /Y "%BACKUP_DIR%" "%APP_DIR%" >nul',
+        'exit /b 1',
+        ":install_failed",
+        'exit /b 1',
+    ])
+    with open(script_path, "w", encoding="utf-8", newline="\r\n") as script:
+        script.write("\n".join(lines) + "\n")
+
+
 def prepare_install(zip_path, current_executable=None):
-    if not getattr(sys, "frozen", False):
-        raise RuntimeError("Automatic installation is available only from a compiled application.")
-    if not current_executable:
-        current_executable = sys.executable
-    current_executable = os.path.abspath(current_executable)
-    app_dir = os.path.dirname(current_executable)
-    current_exe_name = os.path.basename(current_executable)
-
     extracted_root = extract_update(zip_path)
-    package_root, staged_executable = _package_root(extracted_root)
-    staged_exe_name = os.path.basename(staged_executable)
 
-    if os.path.abspath(package_root) == os.path.abspath(app_dir):
-        raise ValueError("The update package cannot use the current application directory as its staging directory.")
+    if getattr(sys, "frozen", False):
+        if not current_executable:
+            current_executable = sys.executable
+        current_executable = os.path.abspath(current_executable)
+        app_dir = os.path.dirname(current_executable)
+        current_exe_name = os.path.basename(current_executable)
+        package_root, staged_executable = _package_root(extracted_root)
+        staged_exe_name = os.path.basename(staged_executable)
 
-    transaction_dir = tempfile.mkdtemp(prefix="ai_teamtalk_update_transaction_")
+        if os.path.abspath(package_root) == os.path.abspath(app_dir):
+            raise ValueError("The update package cannot use the current application directory as its staging directory.")
+
+        transaction_dir = tempfile.mkdtemp(prefix="ai_teamtalk_update_transaction_")
+        stage_dir = os.path.join(transaction_dir, "package")
+        backup_dir = os.path.join(os.path.dirname(app_dir), os.path.basename(app_dir) + ".update-backup")
+        shutil.move(package_root, stage_dir)
+        shutil.rmtree(extracted_root, ignore_errors=True)
+
+        script_path = os.path.join(transaction_dir, "apply_update.cmd")
+        _write_update_script(
+            script_path, app_dir, stage_dir, backup_dir,
+            current_exe_name, staged_exe_name, os.getpid(),
+        )
+        return {
+            "mode": "frozen",
+            "script_path": script_path,
+            "app_dir": app_dir,
+            "backup_dir": backup_dir,
+            "current_exe": current_executable,
+            "current_exe_name": current_exe_name,
+            "staged_exe_name": staged_exe_name,
+            "transaction_dir": transaction_dir,
+        }
+
+    app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    source_root = _source_package_root(extracted_root)
+    if os.path.abspath(source_root) == os.path.abspath(app_dir):
+        raise ValueError("The update package cannot use the current source directory as its staging directory.")
+
+    transaction_dir = tempfile.mkdtemp(prefix="ai_teamtalk_source_update_transaction_")
     stage_dir = os.path.join(transaction_dir, "package")
     backup_dir = os.path.join(os.path.dirname(app_dir), os.path.basename(app_dir) + ".update-backup")
-    shutil.move(package_root, stage_dir)
+    shutil.move(source_root, stage_dir)
     shutil.rmtree(extracted_root, ignore_errors=True)
 
-    script_path = os.path.join(transaction_dir, "apply_update.cmd")
-    _write_update_script(
+    script_path = os.path.join(transaction_dir, "apply_source_update.cmd")
+    _write_source_update_script(
         script_path,
         app_dir,
         stage_dir,
         backup_dir,
-        current_exe_name,
-        staged_exe_name,
+        os.path.abspath(sys.executable),
+        "web_ui.py",
         os.getpid(),
     )
     return {
+        "mode": "source",
         "script_path": script_path,
         "app_dir": app_dir,
         "backup_dir": backup_dir,
-        "current_exe": current_executable,
-        "current_exe_name": current_exe_name,
-        "staged_exe_name": staged_exe_name,
+        "current_exe": None,
+        "current_exe_name": None,
+        "staged_exe_name": None,
         "transaction_dir": transaction_dir,
     }
 

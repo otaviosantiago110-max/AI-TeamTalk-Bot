@@ -17,7 +17,7 @@ from services.task_scheduler import TaskScheduler
 import i18n
 from context_history_manager import ContextHistoryManager
 from logger_config import bot_logger # Import the named logger
-from version import VERSION
+from version import VERSION, VERSION_LABEL, CLIENT_NAME, CLIENT_ID, TEAMTALK_VERSION
 from updater import UpdateManager
 
 
@@ -28,6 +28,10 @@ def _resource_base_dir():
         return sys._MEIPASS
     return os.path.dirname(os.path.abspath(__file__))
 
+
+STATUSMODE_MALE = 0x00000000
+STATUSMODE_FEMALE = 0x00000100
+STATUSMODE_NEUTRAL = 0x00001000
 
 SLEEP_TIMEOUT_SECONDS = 20 * 60  # 20 minutes of no activity -> bot "sleeps"
 REMINDER_INTERVAL_SECONDS = 20 * 60  # how often message.wav repeats while asleep
@@ -46,7 +50,8 @@ class MyTeamTalkBot(TeamTalk):
         self.udp_port, self.nickname = self.tcp_port, ttstr(conn_conf.get('nickname'))
         self.status_message, self.username = ttstr(bot_conf.get('status_message')), ttstr(conn_conf.get('username'))
         self.password, self.target_channel_path = ttstr(conn_conf.get('password')), ttstr(conn_conf.get('channel'))
-        self.channel_password, self.client_name = ttstr(conn_conf.get('channel_password')), ttstr(bot_conf.get('client_name'))
+        self.channel_password = ttstr(conn_conf.get('channel_password'))
+        self.client_name = ttstr(CLIENT_NAME)
 
         self.reconnect_delay_min = int(bot_conf.get('reconnect_delay_min'))
         self.reconnect_delay_max = int(bot_conf.get('reconnect_delay_max'))
@@ -65,18 +70,23 @@ class MyTeamTalkBot(TeamTalk):
         self.announce_join_leave = self.allow_channel_messages = self.allow_broadcast = True
         self.allow_groq_pm = self.allow_groq_channel = True
         self.welcome_message_mode, self.filter_enabled = "template", bool(self.filtered_words)
+        self.welcome_sound_enabled = str(bot_conf.get('welcome_sound_enabled', 'True')).lower() == 'true'
         self.UNBLOCKABLE_COMMANDS = {'h','q','rs','block','unblock','info','whoami','rights','lock','tfilter','tgmmode'}
 
         self.context_history_enabled = bot_conf.get('context_history_enabled', True)
         self.debug_logging_enabled = bot_conf.get('debug_logging_enabled', False) # New attribute for debug logging
         self.ai_system_instructions = bot_conf.get('ai_system_instructions', '') # New attribute for AI system instructions
+        self.ai_gender = bot_conf.get('ai_gender', 'neutral').strip().lower()
+        if self.ai_gender not in {'neutral', 'male', 'female'}:
+            self.ai_gender = 'neutral'
         self.welcome_message_instructions = bot_conf.get('welcome_message_instructions', '') # New attribute for welcome message instructions
         self.groq_service = GroqService(
             api_key=bot_conf.get('groq_api_key'),
             context_history_enabled=self.context_history_enabled,
             model_name=bot_conf.get('groq_model_name', 'openai/gpt-oss-120b'),
             system_instructions=self.ai_system_instructions,
-            welcome_instructions=self.welcome_message_instructions
+            welcome_instructions=self.welcome_message_instructions,
+            gender=self.ai_gender
         )
         self.youtube_service = YouTubeService()
         self._current_youtube_path, self._current_youtube_title = None, None
@@ -124,6 +134,28 @@ class MyTeamTalkBot(TeamTalk):
         else:
             self._log_to_gui(f"Failed to set Groq model to {new_model_name}. Current model: {self.groq_service.get_current_model_name()}")
             return False
+
+    def _gender_status_mode(self):
+        return {
+            'neutral': STATUSMODE_NEUTRAL,
+            'female': STATUSMODE_FEMALE,
+            'male': STATUSMODE_MALE,
+        }.get(self.ai_gender, STATUSMODE_NEUTRAL)
+
+    def _apply_gender_status(self):
+        if self._logged_in:
+            self.doChangeStatus(self._gender_status_mode(), self.status_message)
+
+    def set_ai_gender(self, gender):
+        gender = (gender or '').strip().lower()
+        if gender not in {'neutral', 'male', 'female'}:
+            return False
+        self.ai_gender = gender
+        self.config['Bot']['ai_gender'] = gender
+        self.groq_service.set_gender(gender)
+        self._save_runtime_config()
+        self._apply_gender_status()
+        return True
 
     def set_ai_system_instructions(self, instructions):
         self.ai_system_instructions = instructions
@@ -283,20 +315,17 @@ class MyTeamTalkBot(TeamTalk):
             pass
 
     def _play_channel_sound(self, filename):
-        """Streams a short local .wav from /sounds into the channel via the
-        SDK's media-file streaming call. Skipped while a YouTube track is
-        playing, since the SDK only supports one active stream at a time —
-        we don't want a UI sound to interrupt someone's music."""
-        if self._current_youtube_path:
-            self.logger.debug(f"Skipping channel sound '{filename}' — YouTube playback in progress.")
-            return False
         path = os.path.join(self._sounds_dir, filename)
-        if not os.path.exists(path):
-            self.logger.warning(f"Sound file not found: {path}")
+        if not os.path.isfile(path):
+            self.logger.warning("Sound file not found: %s", path)
             return False
-        video_codec = VideoCodec()
-        video_codec.nCodec = Codec.NO_CODEC
-        return self.startStreamingMediaFileToChannel(path, video_codec)
+        try:
+            video_codec = VideoCodec()
+            video_codec.nCodec = Codec.NO_CODEC
+            return self.startStreamingMediaFileToChannel(path, video_codec)
+        except Exception as exc:
+            self.logger.error("Failed to play channel sound %s: %s", filename, exc, exc_info=True)
+            return False
 
     def register_activity(self):
         """Called whenever a real user (not another bot) does something in
@@ -381,7 +410,6 @@ class MyTeamTalkBot(TeamTalk):
         except Exception as e:
             self.logger.warning(f"Error handling file transfer: {e}")
 
-
     def onStreamMediaFile(self, mediafileinfo):
         # Fired by the SDK as the streamed file's status changes (started,
         # playing, finished, error, aborted...). Mainly useful to clean up
@@ -414,6 +442,7 @@ class MyTeamTalkBot(TeamTalk):
         self._log_to_gui(f"Initializing bot session..."); self._start_time = time.time()
         self._intentional_stop = False; self._running = True
         self.task_scheduler.start()
+        self.update_manager.start()
         try:
             if not self.connect(self.host, self.tcp_port, self.udp_port): self._running = False; return
             self._log_to_gui("Connection started. Entering event loop.")
@@ -431,7 +460,9 @@ class MyTeamTalkBot(TeamTalk):
                     self.logger.error(f"Unhandled error in event loop: {e}", exc_info=True)
                     self._log_to_gui(f"[Error] Unhandled error in event loop: {e}")
         except TeamTalkError as e: self._log_to_gui(f"[SDK Critical] Connection error: {e.errmsg}"); self._running = False
-        finally: self.stop()
+        finally:
+            self.update_manager.stop()
+            self.stop()
 
     def _process_pending_main_thread_actions(self):
         """Runs any actions queued from background threads (e.g. a YouTube
@@ -467,11 +498,19 @@ class MyTeamTalkBot(TeamTalk):
         self._log_to_gui(f"[Cmd Error {cmd_id}] {err.nErrorNo} - {ttstr(err.szErrorMsg)}")
         if err.nErrorNo in [ClientError.CMDERR_INVALID_ACCOUNT, ClientError.CMDERR_SERVER_BANNED]: self._mark_stopped_intentionally()
 
+    def onCmdSuccess(self, cmd_id):
+        pass
+
     def onCmdMyselfLoggedIn(self, user_id, user_acc):
         self._logged_in, self._my_user_id, self.my_rights = True, user_id, user_acc.uUserRights
-        self._log_to_gui(f"Login success! My ID: {user_id}, Rights: {self.my_rights:#010x}")
+        try:
+            my_user = self.getMyUserData()
+            self.my_user_type = int(my_user.uUserType)
+        except Exception:
+            self.my_user_type = 0
+        self._log_to_gui(f"Login success! My ID: {user_id}, Rights: {self.my_rights:#010x}, UserType: {self.my_user_type:#x}")
         if self.main_window: wx.CallAfter(self.main_window.Show); wx.CallAfter(self.main_window.SetTitle, f"Bot - {ttstr(self.nickname)}"); wx.CallAfter(self.main_window.update_feature_list)
-        if self.status_message: self.doChangeStatus(0, self.status_message)
+        self.doChangeStatus(self._gender_status_mode(), self.status_message)
         self._update_admin_ids()
         chan_id = self.getChannelIDFromPath(self.target_channel_path) or self.getRootChannelID()
         if chan_id > 0: self._target_channel_id = chan_id; self._join_cmd_id = self.doJoinChannelByID(chan_id, self.channel_password)
@@ -479,14 +518,15 @@ class MyTeamTalkBot(TeamTalk):
     
     def onCmdMyselfLoggedOut(self): self._log_to_gui("Logged out."); self._logged_in = False
 
-
     def onCmdUserJoinedChannel(self, user):
         if user.nUserID == self._my_user_id:
             self._in_channel = True; self._log_to_gui(f"Joined channel ID: {user.nChannelID}")
         else:
             self._update_admin_ids() # Update admin IDs when a user joins
             if self.announce_join_leave and user.nChannelID == self.getMyChannelID():
-                welcome_msg = self.groq_service.generate_welcome_message(ttstr(user.szNickname)) if self.welcome_message_mode == "groq" and self.groq_service.is_enabled() else f"Welcome, {ttstr(user.szNickname)}!"
+                if self.welcome_sound_enabled:
+                    self._play_channel_sound("new_user.wav")
+                welcome_msg = self.groq_service.generate_welcome_message(ttstr(user.szNickname), language=self.language) if self.welcome_message_mode == "groq" and self.groq_service.is_enabled() else self.t("welcome.channel", nickname=ttstr(user.szNickname))
                 self._send_channel_message(user.nChannelID, welcome_msg)
     
     def onCmdUserLeftChannel(self, chan_id, user):

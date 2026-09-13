@@ -7,7 +7,7 @@ from bot_controller import ApplicationController
 from config_manager import load_config, DEFAULT_CONFIG
 from logger_config import setup_logging, bot_logger
 from .database import db
-from version import VERSION
+from version import VERSION, VERSION_LABEL, CLIENT_NAME, CLIENT_ID, TEAMTALK_VERSION
 import i18n
 
 load_dotenv()
@@ -37,6 +37,12 @@ def create_app():
 
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///site.db'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    @app.after_request
+    def disable_web_cache(response):
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        return response
+
     db.init_app(app)
     app.logger.propagate = False
 
@@ -48,7 +54,7 @@ def create_app():
         # Expose the Web UI translations to JavaScript so dynamic elements use the same locale as the server-rendered page.
         locale_data = i18n._load(lang)
         web_i18n = {key: value for key, value in locale_data.items() if key.startswith('web.')}
-        return dict(t=lambda key, **kwargs: i18n.t(key, lang=lang, **kwargs), current_lang=lang, web_i18n=web_i18n, application_version=VERSION, application_version_label=f"v{VERSION}", teamtalk_version="5.15.0")
+        return dict(t=lambda key, **kwargs: i18n.t(key, lang=lang, **kwargs), current_lang=lang, web_i18n=web_i18n, application_version=VERSION, application_version_label=VERSION_LABEL, client_name=CLIENT_NAME, client_id=CLIENT_ID, teamtalk_version=TEAMTALK_VERSION)
 
     with app.app_context():
         db.create_all()

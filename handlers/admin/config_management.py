@@ -100,6 +100,31 @@ def handle_set_ai_system_instructions(bot, msg_from_id, args_str, **kwargs):
     else:
         bot._send_pm(msg_from_id, bot.t("config.instructions_failed"))
 
+def handle_set_ai_gender(bot, msg_from_id, args_str, **kwargs):
+    gender = (args_str or '').strip().lower()
+    aliases = {'neutro': 'neutral', 'masculino': 'male', 'feminino': 'female'}
+    gender = aliases.get(gender, gender)
+    if not gender:
+        bot._send_pm(msg_from_id, bot.t("config.usage_ai_gender"))
+        return
+    if gender not in {'neutral', 'male', 'female'}:
+        bot._send_pm(msg_from_id, bot.t("config.invalid_ai_gender"))
+        return
+    if bot.set_ai_gender(gender):
+        bot._send_pm(msg_from_id, bot.t("config.ai_gender_set", gender=bot.t(f"config.ai_gender.{gender}")))
+    else:
+        bot._send_pm(msg_from_id, bot.t("config.invalid_ai_gender"))
+
+def handle_get_ai_gender(bot, msg_from_id, **kwargs):
+    bot._send_pm(msg_from_id, bot.t("config.ai_gender_current", gender=bot.t(f"config.ai_gender.{bot.ai_gender}")))
+
+def handle_toggle_welcome_sound(bot, msg_from_id, **kwargs):
+    bot.welcome_sound_enabled = not bot.welcome_sound_enabled
+    bot.config['Bot']['welcome_sound_enabled'] = 'true' if bot.welcome_sound_enabled else 'false'
+    bot._save_runtime_config()
+    state_key = 'bot_control.on' if bot.welcome_sound_enabled else 'bot_control.off'
+    bot._send_pm(msg_from_id, bot.t('welcome_sound.toggled', state=bot.t(state_key)))
+
 def handle_set_welcome_instruction(bot, msg_from_id, args_str, **kwargs):
     if not args_str:
         bot._send_pm(msg_from_id, bot.t("config.usage_welcome_instructions")); return

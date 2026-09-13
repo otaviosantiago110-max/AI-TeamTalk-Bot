@@ -92,5 +92,4 @@ The web panel (`web_ui.py`) has its own configurable host/port, under the `[WebU
 
 ## What's still missing (roadmap)
 
-- **Voice recognition** (wake-word activation + spoken commands) — not implemented yet; this is the most complex part of the project.
 - **Auto-updater** (checking GitHub for new versions) — intentionally postponed until the bot is more stable.

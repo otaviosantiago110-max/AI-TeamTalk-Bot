@@ -92,29 +92,12 @@ class YouTubeService:
             title = "_" + title
         return title[:180]
 
-    def _resolve_title(self, entry):
-        title = str(entry.get("title") or "").strip()
-        video_url = self._entry_url(entry)
-        if title and not re.fullmatch(r"[A-Za-z0-9_-]{11}", title):
-            return title
-        if not self.yt_dlp_exe or not video_url:
-            return title or "YouTube"
-        cmd = [self.yt_dlp_exe, "--no-warnings", "--no-playlist", "--get-title", video_url]
-        result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
-        if result.returncode == 0:
-            resolved = result.stdout.strip().splitlines()
-            if resolved and resolved[0].strip():
-                return resolved[0].strip()
-        return title or "YouTube"
-
     def _download_entry(self, entry):
         uid = uuid.uuid4().hex
-        title = self._resolve_title(entry)
+        title = entry.get("title") or "YouTube"
         base_name = self._safe_filename(title)
         source_template = os.path.join(self.download_dir, f"{uid}.%(ext)s")
         output_path = os.path.join(self.download_dir, f"{base_name}.mp3")
-        if os.path.exists(output_path):
-            output_path = os.path.join(self.download_dir, f"{base_name}_{uid[:8]}.mp3")
         source_cmd = [
             self.yt_dlp_exe,
             "--no-warnings",
@@ -146,8 +129,7 @@ class YouTubeService:
             "-b:a", "320k",
             "-ar", "48000",
             "-id3v2_version", "3",
-            "-metadata", f"title={title}",
-            "-metadata", f"artist={entry.get('uploader', '')}",
+            "-metadata", f"title={entry.get('title', 'YouTube')}",
             output_path,
         ]
         result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=600)
@@ -157,7 +139,7 @@ class YouTubeService:
             pass
         if result.returncode != 0 or not os.path.isfile(output_path):
             raise RuntimeError((result.stderr or result.stdout).strip() or "Falha na conversão para MP3.")
-        return output_path, title or "Desconhecido"
+        return output_path, entry.get("title", "Desconhecido")
 
     def search_and_download(self, query):
         if not self.is_enabled():

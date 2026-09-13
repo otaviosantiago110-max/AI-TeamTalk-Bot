@@ -20,6 +20,8 @@ def setup_config():
         import copy
         new_config = copy.deepcopy(current)
         for key, value in request.form.items():
+            if key == 'Bot_ai_gender':
+                continue
             if '_' not in key:
                 continue
             section, option = key.split('_', 1)
@@ -75,6 +77,8 @@ def manage_config():
         for section, settings in new_config_data.items():
             if section in current_config:
                 for key, value in settings.items():
+                    if section == 'Bot' and key == 'ai_gender':
+                        continue
                     current_config[section][key] = value
             else:
                 current_config[section] = settings

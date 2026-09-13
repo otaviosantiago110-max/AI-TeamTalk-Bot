@@ -1,3 +1,17 @@
+- Added the admin-only PM command `wsnd` to toggle the new-user welcome sound.
+## v0.3.3
+
+- Updated TeamTalk SDK from 5.15.0 to 5.19A (5.19.0.5170).
+- Completely removed the AI voice system from this base.
+- Fixed final YouTube MP3 filenames to use only the title, without random identifiers.
+
+## v0.3.2 — Final
+
+- Rebuilt voice system with independent capture, processing, transcription and output stages.
+- Voice input uses 24 kHz mono.
+- Voice output uses an audio queue driven by `CLIENTEVENT_AUDIOINPUT` to refill the TeamTalk input buffer.
+- Client identification is now versioned: `AI Bot v0.3.2`.
+
 ### v0.3.2
 
 ## v0.3.2 — Update system

@@ -1,3 +1,17 @@
+- Adicionado o comando `wsnd`, exclusivo para administradores em PM, para ligar/desligar o som de novo usuário.
+## v0.3.3
+
+- Atualizado o TeamTalk SDK de 5.15.0 para 5.19A (5.19.0.5170).
+- Removido completamente o sistema de voz de IA desta base.
+- Corrigido o nome final dos arquivos MP3 baixados do YouTube para usar apenas o título, sem identificadores aleatórios.
+
+## v0.3.2 — Final
+
+- Sistema de voz reconstruído com captura de áudio, processamento, transcrição e saída por etapas independentes.
+- Entrada de voz fixada em 24 kHz mono.
+- Saída de voz usa fila de áudio e `CLIENTEVENT_AUDIOINPUT` para controlar o preenchimento do buffer do TeamTalk.
+- Identificação do cliente agora é versionada: `AI Bot v0.3.2`.
+
 ### v0.3.2
 
 ## v0.3.2 — Atualização do sistema
